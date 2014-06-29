@@ -1,5 +1,4 @@
-## About #### About #### About ##
-
+## About ##
 A bittorrent client for Internet Technology at Rutgers.
 
 ## Authors ##
