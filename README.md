@@ -6,7 +6,7 @@ A bittorrent client for Internet Technology at Rutgers.
 Classes related to parsing of the .torrent file and storage of the data extracted
 
 ## Authors ##
-    James Dipierro
-    Victor Kaiser-Pendergrast
-    Grayson Phillips
+- James Dipierro
+- Victor Kaiser-Pendergrast
+- Grayson Phillips
 

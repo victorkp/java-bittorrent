@@ -49,6 +49,10 @@ public class TorrentFile {
 		return mAnnounce;
 	}
 
+	/**
+	 * Find the first String from the torrent's
+	 * announce list that appears to be an IP address
+	 */
 	public String getFirstTracker() {
 		for(int i = 0; i < mAnnounce.size(); i++){
 			if(mAnnounce.get(i).matches(TRACKER_REGEX)){

@@ -32,12 +32,16 @@ public class TorrentFileParser {
 	// The torrent file stored as a String
 	private String mTorrentString;
 
+	// The TorrentFile Object that will wrap all the metadata
+	private TorrentFile mTorrentFile;
+
 
 	/**
 	 * Construct a TorrentFileParser from a String of
 	 * the file's contents
 	 */
 	public TorrentFileParser (String fileContent){
+		mTorrentFile = new TorrentFile();
 		mTorrentString = fileContent;
 	}
 
