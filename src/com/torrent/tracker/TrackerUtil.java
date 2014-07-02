@@ -45,8 +45,8 @@ public class TrackerUtil {
 	}
 
 	/**
-	 * A 20 byte ID used by the tracker and other peers.
-	 * Created in the generatePeerID() method
+	 * A 20 byte ID used by the tracker and other peers. Created in the
+	 * generatePeerID() method
 	 */
 	private static byte[] mPeerID;
 
@@ -56,30 +56,36 @@ public class TrackerUtil {
 		try {
 			ByteBuffer infoHash = torrentInfo.info_hash;
 			URL trackerURL = torrentInfo.announce_url;
+			
+			System.out.println("Connecting to tracker at \"" + trackerURL + "\"");
+			
+			trackerURL = new URL("http://128.6.171.130:6969/announce");
 
 			HttpURLConnection getRequest = (HttpURLConnection) trackerURL.openConnection();
-			getRequest.setDoInput(true);
 			getRequest.setRequestMethod("GET");
-			
+			getRequest.setDoInput(true);
+
 			getRequest.addRequestProperty(Keys.PEER_ID, new String(mPeerID));
 			getRequest.addRequestProperty(Keys.INFO_HASH, new String(infoHash.array()));
 			getRequest.addRequestProperty(Keys.PORT, "" + PORT_MIN);
 			getRequest.addRequestProperty(Keys.EVENT, Keys.Events.STARTED);
 			getRequest.addRequestProperty(Keys.UPLOADED, "0");
 			getRequest.addRequestProperty(Keys.DOWNLOADED, "0");
-			
-			getRequest.connect();
-			InputStream getResponse = getRequest.getInputStream();
-			
-			String responseString = "";
-			int next;
-			while((next = getResponse.read()) != -1){
-				responseString = responseString + ((char) next);
-				System.out.print((char) next);
+
+			int status = getRequest.getResponseCode();
+
+			System.out.println("Response code: " + status);
+
+			if (status != 200) {
+				InputStream errorStream = getRequest.getErrorStream();
+				System.out.println(streamToString(errorStream));
+				errorStream.close();
+			} else {
+				InputStream getResponse = getRequest.getInputStream();
+				System.out.println(streamToString(getResponse));
+				getResponse.close();
 			}
-			
-			getResponse.close();
-			
+
 			return true;
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -95,6 +101,18 @@ public class TrackerUtil {
 			mPeerID = new byte[20];
 			new Random().nextBytes(mPeerID);
 		}
+	}
+
+	private static String streamToString(InputStream stream) throws IOException {
+		String responseString = "";
+		if (stream != null) {
+			int next;
+			while ((next = stream.read()) != -1) {
+				responseString = responseString + ((char) next);
+			}
+		}
+
+		return responseString;
 	}
 
 }
