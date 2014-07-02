@@ -20,7 +20,7 @@ public class Main {
 			mTorrentFile = new File(args[0]);
 			mTorrentInfo = new TorrentInfo(fileAsBytes(mTorrentFile));
 			
-			if(!TrackerUtil.getPeers()){
+			if(!TrackerUtil.getPeers(mTorrentInfo)){
 				return;
 			}
 			
