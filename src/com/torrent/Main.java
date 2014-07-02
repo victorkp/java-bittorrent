@@ -64,14 +64,10 @@ public class Main {
 		FileInputStream fstream = null;
 		try {
 			fstream = new FileInputStream(file);
-			String content = "";
-			int next;
+			byte[] bytes = new byte[(int) file.length()];
 			
-			while((next = fstream.read()) != -1){
-				content = content + ((char) next);
-			}
-			
-			return content.getBytes();
+			fstream.read(bytes);
+			return bytes;
 		} catch (Exception e){
 			e.printStackTrace();
 		} finally {

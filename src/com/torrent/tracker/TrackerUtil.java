@@ -68,12 +68,13 @@ public class TrackerUtil {
 			getRequest.addRequestProperty(Keys.UPLOADED, "0");
 			getRequest.addRequestProperty(Keys.DOWNLOADED, "0");
 			
+			getRequest.connect();
 			InputStream getResponse = getRequest.getInputStream();
 			
-			getRequest.connect();
-			
+			String responseString = "";
 			int next;
 			while((next = getResponse.read()) != -1){
+				responseString = responseString + ((char) next);
 				System.out.print((char) next);
 			}
 			
