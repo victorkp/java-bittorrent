@@ -9,4 +9,3 @@ Classes related to parsing of the .torrent file and storage of the data extracte
 - James Dipierro
 - Victor Kaiser-Pendergrast
 - Grayson Phillips
-
