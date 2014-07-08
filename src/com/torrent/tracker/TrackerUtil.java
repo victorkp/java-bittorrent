@@ -1,12 +1,16 @@
 package com.torrent.tracker;
 
+import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.net.HttpURLConnection;
+import java.net.ServerSocket;
 import java.net.URL;
 import java.nio.ByteBuffer;
-import java.util.Random;
 
+import com.torrent.util.HexStringConverter;
 import com.torrent.util.TorrentInfo;
 
 public class TrackerUtil {
@@ -48,30 +52,45 @@ public class TrackerUtil {
 	 * A 20 byte ID used by the tracker and other peers. Created in the
 	 * generatePeerID() method
 	 */
-	private static byte[] mPeerID;
+	private static String mPeerID;
+	
+	private static String mAnnounceURL;
+
+	private static Thread mTcpThread;
+	private static ServerSocket mTcpSocket;
 
 	public static boolean getPeers(TorrentInfo torrentInfo) {
 		generatePeerID();
 
 		try {
 			ByteBuffer infoHash = torrentInfo.info_hash;
-			URL trackerURL = torrentInfo.announce_url;
+			mAnnounceURL = torrentInfo.announce_url.toString();
+
+			byte[] hash = new byte[infoHash.remaining()];
+			infoHash.get(hash, 0, infoHash.remaining());
 			
+			String connectURL = mAnnounceURL + "?" + 
+								Keys.INFO_HASH + "=" + HexStringConverter.toHexString(infoHash.array()) + "&" +
+								Keys.PEER_ID + "=" + HexStringConverter.toHexString(mPeerID.getBytes()) + "&" +
+								Keys.PORT + "=" + PORT_MIN + "&" +
+								Keys.DOWNLOADED + "=0&" +
+								Keys.UPLOADED + "=0&" +
+								Keys.LEFT + "=" + torrentInfo.file_length + "&" +
+								Keys.EVENT + "=" + Keys.Events.STARTED;
+			
+			
+			URL trackerURL = new URL(connectURL);
+
 			System.out.println("Connecting to tracker at \"" + trackerURL + "\"");
-			
-			trackerURL = new URL("http://128.6.171.130:6969/announce");
 
 			HttpURLConnection getRequest = (HttpURLConnection) trackerURL.openConnection();
 			getRequest.setRequestMethod("GET");
-			getRequest.setDoInput(true);
+			
+			getRequest.setRequestProperty("User-Agent","Mozilla/5.0 ( compatible ) ");
+			getRequest.setRequestProperty("Accept", "*/*");
 
-			getRequest.addRequestProperty(Keys.PEER_ID, new String(mPeerID));
-			getRequest.addRequestProperty(Keys.INFO_HASH, new String(infoHash.array()));
-			getRequest.addRequestProperty(Keys.PORT, "" + PORT_MIN);
-			getRequest.addRequestProperty(Keys.EVENT, Keys.Events.STARTED);
-			getRequest.addRequestProperty(Keys.UPLOADED, "0");
-			getRequest.addRequestProperty(Keys.DOWNLOADED, "0");
-
+			getRequest.connect();
+			
 			int status = getRequest.getResponseCode();
 
 			System.out.println("Response code: " + status);
@@ -79,7 +98,9 @@ public class TrackerUtil {
 			if (status != 200) {
 				InputStream errorStream = getRequest.getErrorStream();
 				System.out.println(streamToString(errorStream));
-				errorStream.close();
+				if(errorStream != null) {
+					errorStream.close();
+				}
 			} else {
 				InputStream getResponse = getRequest.getInputStream();
 				System.out.println(streamToString(getResponse));
@@ -93,14 +114,32 @@ public class TrackerUtil {
 		}
 	}
 
+	private static void openTcpPort(final int port){
+		mTcpThread = new Thread(new Runnable(){
+			@Override
+			public void run() {
+				try {
+					mTcpSocket = new ServerSocket(port);
+					while(true){
+						mTcpSocket.accept();
+						System.out.println("Accepted on TCP Socket");
+					}
+				} catch (Exception e){ }
+			}
+		});
+	}
+
 	/**
 	 * Generates a random 20 byte peer ID for sue with the torrent tracker
 	 */
 	private static void generatePeerID() {
 		if (mPeerID == null) {
-			mPeerID = new byte[20];
-			new Random().nextBytes(mPeerID);
+			mPeerID = "";
+			for (int i = 0; i < 20; i++) {
+				mPeerID = mPeerID + (int) (Math.random() * 10);
+			}
 		}
+		System.out.println("Peer ID is " + mPeerID);
 	}
 
 	private static String streamToString(InputStream stream) throws IOException {
