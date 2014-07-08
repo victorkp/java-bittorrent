@@ -1,9 +1,11 @@
 package com.torrent;
 
 import java.io.File;
-import java.io.FileInputStream;
+import java.util.List;
 
+import com.torrent.peer.PeerInfo;
 import com.torrent.tracker.TrackerUtil;
+import com.torrent.util.StreamUtil;
 import com.torrent.util.TorrentInfo;
 
 public class Main {
@@ -18,10 +20,16 @@ public class Main {
 		
 		try {
 			mTorrentFile = new File(args[0]);
-			mTorrentInfo = new TorrentInfo(fileAsBytes(mTorrentFile));
+			mTorrentInfo = new TorrentInfo(StreamUtil.fileAsBytes(mTorrentFile));
 			
-			if(!TrackerUtil.getPeers(mTorrentInfo)){
+			List<PeerInfo> peerList = TrackerUtil.getPeers(mTorrentInfo);
+			if(peerList == null){
 				return;
+			}
+			
+			System.out.println("Peers:");
+			for(PeerInfo peer : peerList){
+				System.out.println("  Peer:  " + peer);
 			}
 			
 		} catch (Exception e){
@@ -55,30 +63,4 @@ public class Main {
 		return true;
 	}
 	
-	/**
-	 * Reads a file into a byte array
-	 * @param file
-	 * @return a byte array of the file contents
-	 */
-	private static byte[] fileAsBytes(File file){
-		FileInputStream fstream = null;
-		try {
-			fstream = new FileInputStream(file);
-			byte[] bytes = new byte[(int) file.length()];
-			
-			fstream.read(bytes);
-			return bytes;
-		} catch (Exception e){
-			e.printStackTrace();
-		} finally {
-			try{
-				if(fstream != null){
-					fstream.close();
-				}
-			} catch (Exception e) { }
-		}
-		
-		return null;
-	}
-
 }
