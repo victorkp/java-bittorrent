@@ -20,12 +20,26 @@ public class TorrentFile {
 
 	private String mCreatedBy;
 
-	public TorrentFile() {
+	public TorrentFile(TorrentFileParser parser) {
 		mInfo = new ArrayList<String>(3);
 		mAnnounce = new ArrayList<String>(3);
 		mFiles = new ArrayList<String>(3);
 		mPaths = new ArrayList<String>(3);
 		mComments = new ArrayList<String>(3);
+		
+		//adds the info from the parser to the TorrentFile object
+		
+		this.addInfo(parser.info_hash.toString());
+		this.addAnnounce(parser.announce_url.toString());
+		this.addFile(parser.file_name);
+		//this.addFile(file, path);
+		
+		//this.addComment(comment);
+		
+		//this.setCreationDate(date);
+		this.setFilePieces(parser.piece_hashes.length);
+		this.setFilePieceLength(parser.piece_length);
+		//mTorrentFile.setCreator(creator);
 	}
 
 	public void addFile(String file){

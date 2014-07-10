@@ -3,15 +3,19 @@ package com.torrent;
 import java.io.File;
 import java.util.List;
 
+import com.torrent.parse.TorrentFileParser;
 import com.torrent.peer.PeerInfo;
 import com.torrent.tracker.TrackerUtil;
 import com.torrent.util.StreamUtil;
 import com.torrent.util.TorrentInfo;
+import com.torrent.parse.TorrentFile;
 
 public class Main {
 	
 	private static File mTorrentFile;
 	private static TorrentInfo mTorrentInfo;
+	private static TorrentFileParser TorrentInfo;
+	private static TorrentFile Torrent;
 
 	public static void main(String[] args) {
 		if(!checkArguments(args)){
@@ -21,6 +25,8 @@ public class Main {
 		try {
 			mTorrentFile = new File(args[0]);
 			mTorrentInfo = new TorrentInfo(StreamUtil.fileAsBytes(mTorrentFile));
+			TorrentInfo = new TorrentFileParser(StreamUtil.fileAsBytes(mTorrentFile));
+			Torrent = new TorrentFile(TorrentInfo);
 			
 			List<PeerInfo> peerList = TrackerUtil.getPeers(mTorrentInfo);
 			if(peerList == null){
