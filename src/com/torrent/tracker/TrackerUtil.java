@@ -12,22 +12,13 @@ import java.util.List;
 
 import com.torrent.peer.PeerInfo;
 import com.torrent.util.Bencoder2;
+import com.torrent.util.Globals;
 import com.torrent.util.HexStringConverter;
 import com.torrent.util.StreamUtil;
-import com.torrent.util.TorrentInfo;
 
 public class TrackerUtil {
 
-	/**
-	 * The lowest port that peers typically have open
-	 */
-	private static final int PORT_MIN = 6881;
-
-	/**
-	 * The highest port that peers typically have open
-	 */
-	private static final int PORT_MAX = 6889;
-
+	
 	/**
 	 * The keys used as HTTP parameters in requests to the tracker
 	 */
@@ -68,32 +59,21 @@ public class TrackerUtil {
 		}
 	}
 
-	/**
-	 * A 20 byte ID used by the tracker and other peers. Created in the
-	 * generatePeerID() method
-	 */
-	private static String mPeerID;
-
 	private static String mAnnounceURL;
 
 	private static Thread mTcpThread;
 	private static ServerSocket mTcpSocket;
 
-	public static List<PeerInfo> getPeers(TorrentInfo torrentInfo) {
-		generatePeerID();
-
+	public static List<PeerInfo> getPeers() {
 		try {
-			ByteBuffer infoHash = torrentInfo.info_hash;
-			mAnnounceURL = torrentInfo.announce_url.toString();
-
-			byte[] hash = new byte[infoHash.remaining()];
-			infoHash.get(hash, 0, infoHash.remaining());
+			ByteBuffer infoHash = Globals.torrentInfo.info_hash;
+			mAnnounceURL = Globals.torrentInfo.announce_url.toString();
 
 			// Add all the URL params needed (info hash, our peer id, the port we'll listen on)
 			// Also say we downloaded/uploaded nothing and that the current event is STARTED
 			String connectURL = mAnnounceURL + "?" + Keys.INFO_HASH + "=" + HexStringConverter.toHexString(infoHash.array()) + "&" + Keys.PEER_ID + "="
-					+ HexStringConverter.toHexString(mPeerID.getBytes()) + "&" + Keys.PORT + "=" + PORT_MIN + "&" + Keys.DOWNLOADED + "=0&" + Keys.UPLOADED + "=0&" + Keys.LEFT + "="
-					+ torrentInfo.file_length + "&" + Keys.EVENT + "=" + Keys.Events.STARTED;
+					+ HexStringConverter.toHexString(Globals.peerID.getBytes()) + "&" + Keys.PORT + "=" + Globals.tcpPort + "&" + Keys.DOWNLOADED + "=0&" + Keys.UPLOADED + "=0&" + Keys.LEFT + "="
+					+ Globals.torrentInfo.file_length + "&" + Keys.EVENT + "=" + Keys.Events.STARTED;
 
 			URL trackerURL = new URL(connectURL);
 
@@ -158,38 +138,11 @@ public class TrackerUtil {
 				}
 			}
 		} catch (IOException e) {
-			e.printStackTrace();
+			//e.printStackTrace();
 			return null;
 		}
 	}
 
-	private static void openTcpPort(final int port) {
-		mTcpThread = new Thread(new Runnable() {
-			@Override
-			public void run() {
-				try {
-					mTcpSocket = new ServerSocket(port);
-					while (true) {
-						mTcpSocket.accept();
-						System.out.println("Accepted on TCP Socket");
-					}
-				} catch (Exception e) {
-				}
-			}
-		});
-	}
-
-	/**
-	 * Generates a random 20 byte peer ID for sue with the torrent tracker
-	 */
-	private static void generatePeerID() {
-		if (mPeerID == null) {
-			mPeerID = "";
-			for (int i = 0; i < 20; i++) {
-				mPeerID = mPeerID + (int) (Math.random() * 10);
-			}
-		}
-		System.out.println("Peer ID is " + mPeerID);
-	}
+	
 
 }

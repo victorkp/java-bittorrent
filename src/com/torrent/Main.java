@@ -5,7 +5,10 @@ import java.util.List;
 
 import com.torrent.parse.TorrentFileParser;
 import com.torrent.peer.PeerInfo;
+import com.torrent.peer.PeerMessage;
+import com.torrent.peer.PeerUtil;
 import com.torrent.tracker.TrackerUtil;
+import com.torrent.util.Globals;
 import com.torrent.util.StreamUtil;
 import com.torrent.util.TorrentInfo;
 import com.torrent.parse.TorrentFile;
@@ -27,17 +30,26 @@ public class Main {
 			mTorrentInfo = new TorrentInfo(StreamUtil.fileAsBytes(mTorrentFile));
 			TorrentInfo = new TorrentFileParser(StreamUtil.fileAsBytes(mTorrentFile));
 			Torrent = new TorrentFile(TorrentInfo);
+
+			Globals.peerID = PeerUtil.getPeerID();
+			Globals.tcpPort = PeerUtil.openTCP();
+			Globals.torrentInfo = mTorrentInfo;
 			
-			List<PeerInfo> peerList = TrackerUtil.getPeers(mTorrentInfo);
+			List<PeerInfo> peerList = TrackerUtil.getPeers();
 			if(peerList == null){
+				System.out.println("There was a problem contacting the tracker");
 				return;
 			}
 			
 			System.out.println("Peers:");
 			for(PeerInfo peer : peerList){
 				System.out.println("  Peer:  " + peer);
+				if(peer.getPeerID().contains("RU1103")){
+					PeerUtil.connectToPeer(peer);
+					break;
+				}
 			}
-			
+
 		} catch (Exception e){
 			e.printStackTrace();
 			return;
