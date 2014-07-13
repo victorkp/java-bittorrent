@@ -107,7 +107,7 @@ public class PeerUtil {
 			connection.closeConnection();
 		}
 		
-		connection.doInterested();
+		connection.initDownload();
 		
 		//connection.doInterested();
 		//connection.doNotChoking();

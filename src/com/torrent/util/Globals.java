@@ -1,6 +1,7 @@
 package com.torrent.util;
 
 import java.io.File;
+import java.io.FileOutputStream;
 
 import com.torrent.peer.PeerConnections;
 
@@ -17,6 +18,11 @@ public class Globals {
 	 * contents
 	 */
 	public static File downloadFile;
+	
+	/**
+	 * The file outputstream to Globals.downloadFile
+	 */
+	public static FileOutputStream downloadFileOut;
 	
 	/**
 	 * A 20 byte ID used by the tracker and other peers. Created in the
