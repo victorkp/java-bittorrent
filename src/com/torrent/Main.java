@@ -35,6 +35,8 @@ public class Main {
 			Globals.tcpPort = PeerUtil.openTCP();
 			Globals.torrentInfo = mTorrentInfo;
 			
+			System.out.println(Globals.torrentInfo.info_hash.array());
+			
 			List<PeerInfo> peerList = TrackerUtil.getPeers();
 			if(peerList == null){
 				System.out.println("There was a problem contacting the tracker");
@@ -49,6 +51,8 @@ public class Main {
 					break;
 				}
 			}
+			
+			System.out.println("---END---");
 
 		} catch (Exception e){
 			e.printStackTrace();

@@ -99,23 +99,21 @@ public class PeerUtil {
 	}
 
 	public static void connectToPeer(PeerInfo peer) {
-		try {
-			Socket socket = new Socket(peer.getIP(), peer.getPort());
-			socket.getOutputStream().write(PeerMessage.makeHandshake());
-
-			InputStream in = socket.getInputStream();
-			int next;
-			while ((next = in.read()) != -1) {
-				System.out.print((char) next);
-			}
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-
 		PeerConnection connection = new PeerConnection(peer);
-		connection.doHandshake();
-		connection.doKeepAlive();
+		if (connection.doHandshake() ){
+			System.out.println("Made handshake!");
+		} else {
+			System.out.println("Handshake failed");
+			connection.closeConnection();
+		}
+		
 		connection.doInterested();
+		
+		//connection.doInterested();
+		//connection.doNotChoking();
+		//connection.doRequest(0, 0, Globals.torrentInfo.piece_length);
+		
+		connection.closeConnection();
 	}
 
 }

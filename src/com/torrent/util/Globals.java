@@ -1,10 +1,22 @@
 package com.torrent.util;
 
+import java.io.File;
+
 import com.torrent.peer.PeerConnections;
 
 public class Globals {
 	
+	/**
+	 * The TorrentInfo object containing information
+	 * retrieved from the .torrent file
+	 */
 	public static TorrentInfo torrentInfo;
+
+	/**
+	 * The file that will house the downloaded
+	 * contents
+	 */
+	public static File downloadFile;
 	
 	/**
 	 * A 20 byte ID used by the tracker and other peers. Created in the

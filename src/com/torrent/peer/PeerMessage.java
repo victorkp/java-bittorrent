@@ -28,12 +28,10 @@ public class PeerMessage {
 	 */
 	public static byte[] makeHandshake() {
 		byte[] bytes = new byte[68];
-		ByteBuffer buffer = ByteBuffer.wrap(bytes);
 		
-		buffer.put(HANDSHAKE.getBytes());
-		buffer.put(new byte[8]);
-		buffer.put(Globals.torrentInfo.info_hash.array());
-		buffer.put(Globals.peerID.getBytes());
+		System.arraycopy(HANDSHAKE.getBytes(), 0, bytes, 0, 20);
+		System.arraycopy(Globals.torrentInfo.info_hash.array(), 0, bytes, 28, 20);
+		System.arraycopy(Globals.peerID.getBytes(), 0, bytes, 48, 20);
 		
 		return bytes;
 	}
@@ -42,22 +40,88 @@ public class PeerMessage {
 	 * Keep alive messages are length 0, should be sent every two minutes
 	 */
 	public static byte[] makeKeepAlive() {
-		return new byte[1];
+		return new byte[]{ 0, 0, 0, 0 };
 	}
 	
 	public static byte[] makeInterested() {
-		return new byte[]{ 0x01, Type.INTERESTED };
+		byte[] bytes = new byte[5];
+		ByteBuffer.wrap(bytes).putInt(1).put(Type.INTERESTED);
+		return bytes;
 	}
 	
 	public static byte[] makeNotInterested() {
-		return new byte[]{ 0x01, Type.NOT_INTERESTED };
+		byte[] bytes = new byte[5];
+		ByteBuffer.wrap(bytes).putInt(1).put(Type.NOT_INTERESTED);
+		return bytes;
+	}
+	
+	public static byte[] makeChoking() {
+		byte[] bytes = new byte[5];
+		ByteBuffer.wrap(bytes).putInt(1).put(Type.CHOKE);
+		return bytes;
+	}
+	
+	public static byte[] makeNotChoking() {
+		byte[] bytes = new byte[5];
+		ByteBuffer.wrap(bytes).putInt(1).put(Type.UNCHOKE);
+		return bytes;
 	}
 	
 	public static byte[] makeHave(int pieceIndex) {
-		byte[] bytes = new byte[6];
-		bytes[0] = 0x05; // Length Prefix
-		bytes[1] = Type.HAVE;
+		byte[] bytes = new byte[9];
+		ByteBuffer buffer = ByteBuffer.wrap(bytes);
 		
+		buffer.putInt(0x05); // Length Prefix
+		buffer.put(Type.HAVE);
+		buffer.putInt(pieceIndex);
+		
+		return bytes;
 	}
-
+	
+	// TODO Implement this
+	public static byte[] makeBitField(){
+		byte[] bytes = new byte[4];
+		ByteBuffer.wrap(bytes).putInt(0);
+		return bytes;
+	}
+	
+	public static byte[] makeRequest(int index, int beginOffset, int length){
+		byte[] bytes = new byte[17];
+		ByteBuffer buffer = ByteBuffer.wrap(bytes);
+		
+		buffer.putInt(13); // Length Prefix
+		buffer.put(Type.REQUEST);
+		buffer.putInt(index);
+		buffer.putInt(beginOffset);
+		buffer.putInt(length);
+		
+		return bytes;
+	}
+	
+	public static byte[] makePiece(int index, int beginOffset, byte[] block){
+		byte[] bytes = new byte[13 + block.length];
+		ByteBuffer buffer = ByteBuffer.wrap(bytes);
+		
+		buffer.putInt(9 + block.length); // Length Prefix
+		buffer.put(Type.PIECE);
+		buffer.putInt(index);
+		buffer.putInt(beginOffset);
+		buffer.put(block);
+		
+		return bytes;
+	}
+	
+	public static byte[] makeCancel(int index, int beginOffset, int length){
+		byte[] bytes = new byte[17];
+		ByteBuffer buffer = ByteBuffer.wrap(bytes);
+		
+		buffer.putInt(13); // Length Prefix
+		buffer.put(Type.CANCEL);
+		buffer.putInt(index);
+		buffer.putInt(beginOffset);
+		buffer.putInt(length);
+		
+		return bytes;
+	}
+	
 }
