@@ -18,7 +18,6 @@ import com.torrent.util.StreamUtil;
 
 public class TrackerUtil {
 
-	
 	/**
 	 * The keys used as HTTP parameters in requests to the tracker
 	 */
@@ -41,9 +40,9 @@ public class TrackerUtil {
 			public static final String STOPPED = "stopped";
 		}
 	}
-	
+
 	/**
-	 * The constant keys that are used in the byte encoded response 
+	 * The constant keys that are used in the byte encoded response
 	 */
 	private static class TrackerConstants {
 		public static final ByteBuffer COMPLETE = ByteBuffer.wrap("complete".getBytes());
@@ -51,7 +50,7 @@ public class TrackerUtil {
 		public static final ByteBuffer INTERVAL = ByteBuffer.wrap("interval".getBytes());
 		public static final ByteBuffer MIN_INTERVAL = ByteBuffer.wrap("min interval".getBytes());
 		public static final ByteBuffer PEERS = ByteBuffer.wrap("peers".getBytes());
-		
+
 		public static class Response {
 			public static final String PORT = "port";
 			public static final String IP = "ip";
@@ -69,8 +68,10 @@ public class TrackerUtil {
 			ByteBuffer infoHash = Globals.torrentInfo.info_hash;
 			mAnnounceURL = Globals.torrentInfo.announce_url.toString();
 
-			// Add all the URL params needed (info hash, our peer id, the port we'll listen on)
-			// Also say we downloaded/uploaded nothing and that the current event is STARTED
+			// Add all the URL params needed (info hash, our peer id, the port
+			// we'll listen on)
+			// Also say we downloaded/uploaded nothing and that the current
+			// event is STARTED
 			String connectURL = mAnnounceURL + "?" + Keys.INFO_HASH + "=" + HexStringConverter.toHexString(infoHash.array()) + "&" + Keys.PEER_ID + "="
 					+ HexStringConverter.toHexString(Globals.peerID.getBytes()) + "&" + Keys.PORT + "=" + Globals.tcpPort + "&" + Keys.DOWNLOADED + "=0&" + Keys.UPLOADED + "=0&" + Keys.LEFT + "="
 					+ Globals.torrentInfo.file_length + "&" + Keys.EVENT + "=" + Keys.Events.STARTED;
@@ -95,7 +96,7 @@ public class TrackerUtil {
 				if (errorStream != null) {
 					errorStream.close();
 				}
-				
+
 				return null;
 			} else {
 				// Get the tracker's response
@@ -105,32 +106,32 @@ public class TrackerUtil {
 
 				try {
 					List<PeerInfo> peerInfos = new ArrayList<PeerInfo>();
-					
+
 					// Decode the response from the tracker
 					HashMap<ByteBuffer, Object> decodedResponse = (HashMap<ByteBuffer, Object>) Bencoder2.decode(response);
-					
-					if(decodedResponse.containsKey(TrackerConstants.PEERS)){
+
+					if (decodedResponse.containsKey(TrackerConstants.PEERS)) {
 						ArrayList<HashMap> peerMapList = (ArrayList<HashMap>) decodedResponse.get(TrackerConstants.PEERS);
-						
-						for(HashMap<ByteBuffer, Object> peerMap : peerMapList){
+
+						for (HashMap<ByteBuffer, Object> peerMap : peerMapList) {
 							PeerInfo peer = new PeerInfo();
-							for(ByteBuffer key : peerMap.keySet()){
+							for (ByteBuffer key : peerMap.keySet()) {
 								String attributeKey = new String(key.array());
 								Object value = peerMap.get(key);
-								
-								if(attributeKey.equals(TrackerConstants.Response.IP)){
+
+								if (attributeKey.equals(TrackerConstants.Response.IP)) {
 									peer.setIP(new String(((ByteBuffer) value).array()));
-								} else if (attributeKey.equals(TrackerConstants.Response.PEER_ID)){
+								} else if (attributeKey.equals(TrackerConstants.Response.PEER_ID)) {
 									peer.setPeerID(new String(((ByteBuffer) value).array()));
-								} else if (attributeKey.equals(TrackerConstants.Response.PORT)){
+								} else if (attributeKey.equals(TrackerConstants.Response.PORT)) {
 									peer.setPort((Integer) peerMap.get(key));
 								}
 							}
-							
+
 							peerInfos.add(peer);
 						}
 					}
-					
+
 					return peerInfos;
 				} catch (Exception e) {
 					e.printStackTrace();
@@ -138,11 +139,41 @@ public class TrackerUtil {
 				}
 			}
 		} catch (IOException e) {
-			//e.printStackTrace();
+			// e.printStackTrace();
 			return null;
 		}
 	}
 
+	public static void sendCompleted() {
+		try {
+			ByteBuffer infoHash = Globals.torrentInfo.info_hash;
+			mAnnounceURL = Globals.torrentInfo.announce_url.toString();
 	
+			// Add all the URL params needed (info hash, our peer id, the port we'll listen on)
+			// Also say we downloaded everything and that the current event is COMPLETED
+			String connectURL = mAnnounceURL + "?" + Keys.INFO_HASH + "=" + HexStringConverter.toHexString(infoHash.array()) + "&" + Keys.PEER_ID + "="
+					+ HexStringConverter.toHexString(Globals.peerID.getBytes()) + "&" + Keys.PORT + "=" + Globals.tcpPort + "&" + Keys.DOWNLOADED + "=" + Globals.downloadFile.length() + "&" + Keys.UPLOADED + "=0&" + Keys.LEFT + "=0&"
+					+ Keys.EVENT + "=" + Keys.Events.COMPLETED;
+	
+			URL trackerURL = new URL(connectURL);
+	
+			HttpURLConnection getRequest = (HttpURLConnection) trackerURL.openConnection();
+			getRequest.setRequestMethod("GET");
+	
+			// Helps with HttpURLConnection work when the port number is not 80
+			getRequest.setRequestProperty("User-Agent", "Mozilla/5.0 ( compatible ) ");
+			getRequest.setRequestProperty("Accept", "*/*");
+	
+			getRequest.connect();
+	
+			int status = getRequest.getResponseCode();
+			
+			if(status != 200){
+				System.out.println("Problem telling tracker the file is downloaded");
+			}
+		} catch (Exception e){
+			e.printStackTrace();
+		}
+	}
 
 }

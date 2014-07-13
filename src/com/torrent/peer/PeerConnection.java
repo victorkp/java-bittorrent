@@ -83,8 +83,26 @@ public class PeerConnection {
 
 		return false;
 	}
+	
+	/**
+	 * Tell the peer that a piece has been downloaded
+	 * @param index the index of the piece
+	 * @return true if successful
+	 */
+	public boolean doHave(int index){
+		try {
+			mSocket.setSoTimeout(20000);
+			mDataOut.write(PeerMessage.makeHave(index));
+			mDataOut.flush();
+			return true;
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 
-	public boolean initDownload() {
+		return false;
+	}
+
+	public boolean setupDownload() {
 		try {
 			// Ignore the bitfield response
 			byte[] lengthPrefix = new byte[4];
@@ -92,18 +110,13 @@ public class PeerConnection {
 			ByteBuffer lengthBuffer = ByteBuffer.wrap(lengthPrefix);
 			int length = lengthBuffer.getInt();
 
-			System.out.println("Ignoring " + length + " bytes for the bitfield");
-
 			byte[] response = new byte[length];
 			mDataIn.readFully(response);
-			System.out.println("Type: " + (int) response[0]);
 
 			if (!doInterested()) {
-				System.out.println("Peer is still choking us.");
+				System.out.println("Error: peer is still choking us.");
 				return false;
 			}
-
-			doDownload();
 
 			return true;
 
@@ -124,7 +137,6 @@ public class PeerConnection {
 
 		// How long the final piece in the file is
 		finalPieceLength = Globals.torrentInfo.file_length - ((Globals.torrentInfo.piece_hashes.length - 1) * Globals.torrentInfo.piece_length);
-		System.out.println("Final piece length is " + finalPieceLength);
 
 		while (currentPiece < Globals.torrentInfo.piece_hashes.length) {
 			// We still need parts of the file
@@ -150,7 +162,9 @@ public class PeerConnection {
 			// If we have finished downloading this piece...
 			if (requestBeginOffset == Globals.torrentInfo.piece_length) {
 				if(checkPieceHash(currentPiece)){
-					// The hash is good, so write the data and move on
+					// The hash is good, so tell the peer, write the data, and move on
+					doHave(currentPiece);
+					
 					Globals.downloadFileOut.write(mCurrentPieceBytes);
 					currentPiece++;
 				}
@@ -253,8 +267,6 @@ public class PeerConnection {
 			while ((next = mIn.read()) != -1) {
 				response += (char) next;
 			}
-
-			System.out.println(response);
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -270,8 +282,6 @@ public class PeerConnection {
 			while ((next = mIn.read()) != -1) {
 				response += (char) next;
 			}
-
-			System.out.println(response);
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -295,8 +305,6 @@ public class PeerConnection {
 			response += (char) next;
 			System.out.print((char) next);
 		}
-
-		System.out.println("\n" + response);
 
 		return response;
 	}

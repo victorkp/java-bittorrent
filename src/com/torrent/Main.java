@@ -6,6 +6,7 @@ import java.util.List;
 
 import com.torrent.parse.TorrentFile;
 import com.torrent.parse.TorrentFileParser;
+import com.torrent.peer.PeerConnection;
 import com.torrent.peer.PeerInfo;
 import com.torrent.peer.PeerUtil;
 import com.torrent.tracker.TrackerUtil;
@@ -30,7 +31,7 @@ public class Main {
 			mTorrentInfo = new TorrentInfo(StreamUtil.fileAsBytes(mTorrentFile));
 			TorrentInfo = new TorrentFileParser(StreamUtil.fileAsBytes(mTorrentFile));
 			Torrent = new TorrentFile(TorrentInfo);
-			
+
 			System.out.println("Torrent has " + mTorrentInfo.piece_hashes.length + " pieces of length " + mTorrentInfo.piece_length);
 			System.out.println("Total file length is " + mTorrentInfo.file_length);
 
@@ -46,17 +47,28 @@ public class Main {
 				return;
 			}
 
+			PeerConnection peerConnection = null;
+
 			System.out.println("Peers:");
 			for (PeerInfo peer : peerList) {
 				System.out.println("  Peer:  " + peer);
 				if (peer.getPeerID().contains("RU1103")) {
-					PeerUtil.connectToPeer(peer);
+					peerConnection = PeerUtil.connectToPeer(peer);
 					break;
 				}
 			}
-			
+
+			if (peerConnection != null) {
+				if (peerConnection.setupDownload()) {
+					peerConnection.doDownload();
+				}
+				peerConnection.closeConnection();
+			}
+
 			Globals.downloadFileOut.flush();
 			Globals.downloadFileOut.close();
+
+			TrackerUtil.sendCompleted();
 
 			System.out.println("---END---");
 
@@ -95,7 +107,7 @@ public class Main {
 				Globals.downloadFile.delete();
 				Globals.downloadFile.createNewFile();
 			}
-			
+
 			Globals.downloadFileOut = new FileOutputStream(Globals.downloadFile);
 		} catch (Exception e) {
 			System.out.println("Need permission to create " + args[1] + "\nPerhaps run as su?");

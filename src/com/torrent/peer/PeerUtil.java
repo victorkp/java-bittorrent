@@ -61,59 +61,28 @@ public class PeerUtil {
 			try {
 				mSocket = new ServerSocket(port);
 				return port;
-				
-				/*
-				mListenThread = new Thread(new Runnable() {
 
-					@Override
-					public void run() {
-						while (mRunning) {
-							try {
-								final Socket s = mSocket.accept();
-								new Thread(new Runnable() {
-									@Override
-									public void run() {
-										try {
-											int i;
-											while ((i = s.getInputStream().read()) != -1) {
-												System.out.print(i);
-											}
-										} catch (Exception e) {
-											e.printStackTrace();
-										}
-									}
-								}).start();
-							} catch (Exception e) {
-								e.printStackTrace();
-							}
-						}
-					}
-				});
-
-				mListenThread.start();
-				*/
 			} catch (Exception e) {
 			}
 		}
 		return -1;
 	}
 
-	public static void connectToPeer(PeerInfo peer) {
+	/**
+	 * Connect to a peer, and make a handshake
+	 * If that's successful, then download the file
+	 * @param peer
+	 */
+	public static PeerConnection connectToPeer(PeerInfo peer) {
 		PeerConnection connection = new PeerConnection(peer);
 		if (connection.doHandshake() ){
 			System.out.println("Made handshake!");
+			return connection;
 		} else {
 			System.out.println("Handshake failed");
 			connection.closeConnection();
+			return null;
 		}
-		
-		connection.initDownload();
-		
-		//connection.doInterested();
-		//connection.doNotChoking();
-		//connection.doRequest(0, 0, Globals.torrentInfo.piece_length);
-		
-		connection.closeConnection();
 	}
 
 }
