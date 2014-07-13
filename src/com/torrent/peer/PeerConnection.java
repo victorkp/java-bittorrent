@@ -7,6 +7,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.nio.ByteBuffer;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 
 import com.torrent.util.Globals;
@@ -26,6 +28,8 @@ public class PeerConnection {
 
 	private boolean mChoking;
 	private boolean mInterested;
+
+	private byte[] mCurrentPieceBytes;
 
 	public PeerConnection(PeerInfo peer) {
 		mPeer = peer;
@@ -87,20 +91,20 @@ public class PeerConnection {
 			mDataIn.readFully(lengthPrefix);
 			ByteBuffer lengthBuffer = ByteBuffer.wrap(lengthPrefix);
 			int length = lengthBuffer.getInt();
-			
+
 			System.out.println("Ignoring " + length + " bytes for the bitfield");
-			
+
 			byte[] response = new byte[length];
 			mDataIn.readFully(response);
 			System.out.println("Type: " + (int) response[0]);
-			
-			if(!doInterested()) {
+
+			if (!doInterested()) {
 				System.out.println("Peer is still choking us.");
 				return false;
 			}
-			
+
 			doDownload();
-			
+
 			return true;
 
 		} catch (Exception e) {
@@ -109,56 +113,89 @@ public class PeerConnection {
 
 		return false;
 	}
-	
-	public void doDownload() throws IOException{
+
+	public void doDownload() throws IOException {
+		mCurrentPieceBytes = new byte[Globals.torrentInfo.piece_length];
+
 		int finalPieceLength;
 		int currentPiece = 0;
 		int requestBeginOffset = 0;
 		int requestLength = 16384;
-		
+
 		// How long the final piece in the file is
 		finalPieceLength = Globals.torrentInfo.file_length - ((Globals.torrentInfo.piece_hashes.length - 1) * Globals.torrentInfo.piece_length);
 		System.out.println("Final piece length is " + finalPieceLength);
-		
-		while(currentPiece < Globals.torrentInfo.piece_hashes.length) {
+
+		while (currentPiece < Globals.torrentInfo.piece_hashes.length) {
 			// We still need parts of the file
-			
-			if(currentPiece == Globals.torrentInfo.piece_hashes.length -1){
-				// If this is the last piece, we have to be careful about not requesting
+
+			if (currentPiece == Globals.torrentInfo.piece_hashes.length - 1) {
+				// If this is the last piece, we have to be careful about not
+				// requesting
 				// data past the end of the file
-				
+
 				requestLength = Math.min(finalPieceLength, 16384);
 				finalPieceLength -= 16384;
 			}
-			
+
 			System.out.println("Downloading piece " + currentPiece + "/" + (Globals.torrentInfo.piece_hashes.length - 1) + " from offset " + requestBeginOffset + " and length " + requestLength);
-			
+
 			// Request a part of a piece
 			byte[] bytes = doRequest(currentPiece, requestBeginOffset, requestLength);
-			Globals.downloadFileOut.write(bytes);
-			
+			System.arraycopy(bytes, 0, mCurrentPieceBytes, requestBeginOffset, requestLength);
+			// Globals.downloadFileOut.write(bytes);
+
 			requestBeginOffset += requestLength;
-			
+
 			// If we have finished downloading this piece...
-			if(requestBeginOffset == Globals.torrentInfo.piece_length){
-				// move on to the next piece
-				currentPiece++;
+			if (requestBeginOffset == Globals.torrentInfo.piece_length) {
+				if(checkPieceHash(currentPiece)){
+					// The hash is good, so write the data and move on
+					Globals.downloadFileOut.write(mCurrentPieceBytes);
+					currentPiece++;
+				}
+				
+				Arrays.fill(mCurrentPieceBytes, (byte) 0);
 				requestBeginOffset = 0;
 			}
-			
-			// Check to see if we're done download file
-			if(finalPieceLength < 0){
-				currentPiece ++;
+
+			// Check to see if we're done downloading the file
+			if (finalPieceLength < 0) {
+				currentPiece++;
 			}
 		}
 	}
-	
+
+	/**
+	 * Compare the SHA-1 hash of this piece
+	 * with what's expected
+	 * @param index index of the piece to be checked
+	 * @return true if the hash matches
+	 */
+	private boolean checkPieceHash(int index) {
+		try {
+			byte[] pieceHash = new byte[20];
+			MessageDigest md = MessageDigest.getInstance("SHA-1");
+
+			pieceHash = md.digest(mCurrentPieceBytes);
+			
+			return Arrays.equals(pieceHash, Globals.torrentInfo.piece_hashes[index].array());
+
+		} catch (NoSuchAlgorithmException e) {
+			e.printStackTrace();
+			return false;
+		}
+	}
 
 	/**
 	 * Make a request to download data
-	 * @param index index of the piece to download
-	 * @param offset the byte offset of where to start in that piece 
-	 * @param length how many bytes to download after the offset
+	 * 
+	 * @param index
+	 *            index of the piece to download
+	 * @param offset
+	 *            the byte offset of where to start in that piece
+	 * @param length
+	 *            how many bytes to download after the offset
 	 * @return
 	 */
 	public byte[] doRequest(int index, int offset, int length) {
@@ -166,22 +203,25 @@ public class PeerConnection {
 			mDataOut.write(PeerMessage.makeRequest(index, offset, length));
 			mDataOut.flush();
 
+			// Ignore length prefix, piece index, and offset (we already know
+			// all this)
 			byte[] buffer = new byte[13];
 			mDataIn.readFully(buffer);
-			
+
 			byte[] data = new byte[length];
 			mDataIn.readFully(data);
-			
+
 			return data;
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
-		
+
 		return null;
 	}
 
 	/**
 	 * Sends an "interested" message
+	 * 
 	 * @return if the other peer has unchoked
 	 */
 	public boolean doInterested() {
@@ -190,7 +230,7 @@ public class PeerConnection {
 			mSocket.setSoTimeout(20000);
 			mDataOut.write(PeerMessage.makeInterested());
 			mDataOut.flush();
-			
+
 			byte[] response = new byte[5];
 			mDataIn.readFully(response);
 
@@ -199,10 +239,9 @@ public class PeerConnection {
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
-		
+
 		return false;
 	}
-
 
 	public void doKeepAlive() {
 		try {
