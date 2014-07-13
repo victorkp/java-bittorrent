@@ -2,11 +2,11 @@ package com.torrent.peer;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 
 import com.torrent.util.Globals;
@@ -83,17 +83,25 @@ public class PeerConnection {
 	public boolean initDownload() {
 		try {
 			// Ignore the bitfield response
-			byte[] response = new byte[10];
-			mDataIn.readFully(response);
-			System.out.println("Length prefix: " + (int) response[3]);
-			System.out.println("Type: " + (int) response[4]);
+			byte[] lengthPrefix = new byte[4];
+			mDataIn.readFully(lengthPrefix);
+			ByteBuffer lengthBuffer = ByteBuffer.wrap(lengthPrefix);
+			int length = lengthBuffer.getInt();
 			
+			System.out.println("Ignoring " + length + " bytes for the bitfield");
+			
+			byte[] response = new byte[length];
+			mDataIn.readFully(response);
+			System.out.println("Type: " + (int) response[0]);
 			
 			if(!doInterested()) {
 				System.out.println("Peer is still choking us.");
+				return false;
 			}
 			
 			doDownload();
+			
+			return true;
 
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -123,7 +131,7 @@ public class PeerConnection {
 				finalPieceLength -= 16384;
 			}
 			
-			System.out.println("Downloading piece " + currentPiece + " from offset " + requestBeginOffset + " and length " + requestLength);
+			System.out.println("Downloading piece " + currentPiece + "/" + (Globals.torrentInfo.piece_hashes.length - 1) + " from offset " + requestBeginOffset + " and length " + requestLength);
 			
 			// Request a part of a piece
 			byte[] bytes = doRequest(currentPiece, requestBeginOffset, requestLength);
@@ -158,8 +166,8 @@ public class PeerConnection {
 			mDataOut.write(PeerMessage.makeRequest(index, offset, length));
 			mDataOut.flush();
 
-			byte[] buffer = new byte[4];
-			mDataIn.read(buffer);
+			byte[] buffer = new byte[13];
+			mDataIn.readFully(buffer);
 			
 			byte[] data = new byte[length];
 			mDataIn.readFully(data);
