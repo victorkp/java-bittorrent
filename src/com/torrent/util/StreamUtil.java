@@ -1,3 +1,9 @@
+/**
+ * Victor Kaiser-Pendergrast
+ * James DiPierro
+ * Grayson Phillips
+ */
+
 package com.torrent.util;
 
 import java.io.ByteArrayOutputStream;

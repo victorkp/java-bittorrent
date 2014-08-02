@@ -1,3 +1,9 @@
+/**
+ * Victor Kaiser-Pendergrast
+ * James DiPierro
+ * Grayson Phillips
+ */
+
 package com.torrent.peer;
 
 import java.io.InputStream;
@@ -37,7 +43,6 @@ public class PeerUtil {
 				mPeerID = mPeerID + (int) (Math.random() * 10);
 			}
 		}
-		System.out.println("Peer ID is " + mPeerID);
 	}
 
 	/**
@@ -57,7 +62,7 @@ public class PeerUtil {
 	 * @return the port number of the socket, -1 if failed
 	 */
 	public static int openTCP() {
-		for (int port = PORT_MIN; port < -PORT_MAX; port++) {
+		for (int port = PORT_MIN; port < PORT_MAX; port++) {
 			try {
 				mSocket = new ServerSocket(port);
 				return port;
@@ -69,17 +74,26 @@ public class PeerUtil {
 	}
 
 	/**
+	 * Close the TCP socket that we were
+	 * listening to
+	 */
+	public static void closeTCP() {
+		try {
+			mSocket.close();
+		} catch (Exception e){
+		}
+	}
+
+	/**
 	 * Connect to a peer, and make a handshake
-	 * If that's successful, then download the file
 	 * @param peer
 	 */
-	public static PeerConnection connectToPeer(PeerInfo peer) {
+	public static PeerConnection handshakeWithPeer(PeerInfo peer) {
 		PeerConnection connection = new PeerConnection(peer);
 		if (connection.doHandshake() ){
-			System.out.println("Made handshake!");
 			return connection;
 		} else {
-			System.out.println("Handshake failed");
+			System.out.println("Handshake with peer failed, cannot continue");
 			connection.closeConnection();
 			return null;
 		}

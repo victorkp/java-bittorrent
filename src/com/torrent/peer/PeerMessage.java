@@ -1,3 +1,9 @@
+/**
+ * Victor Kaiser-Pendergrast
+ * James DiPierro
+ * Grayson Phillips
+ */
+
 package com.torrent.peer;
 
 import java.nio.ByteBuffer;

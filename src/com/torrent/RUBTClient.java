@@ -1,3 +1,9 @@
+/**
+ * Victor Kaiser-Pendergrast
+ * James DiPierro
+ * Grayson Phillips
+ */
+
 package com.torrent;
 
 import java.io.File;
@@ -14,12 +20,10 @@ import com.torrent.util.Globals;
 import com.torrent.util.StreamUtil;
 import com.torrent.util.TorrentInfo;
 
-public class Main {
+public class RUBTClient {
 
 	private static File mTorrentFile;
 	private static TorrentInfo mTorrentInfo;
-	private static TorrentFileParser TorrentInfo;
-	private static TorrentFile Torrent;
 
 	public static void main(String[] args) {
 		if (!checkArguments(args)) {
@@ -27,20 +31,22 @@ public class Main {
 		}
 
 		try {
+			// Parse torrent file
 			mTorrentFile = new File(args[0]);
 			mTorrentInfo = new TorrentInfo(StreamUtil.fileAsBytes(mTorrentFile));
-			TorrentInfo = new TorrentFileParser(StreamUtil.fileAsBytes(mTorrentFile));
-			Torrent = new TorrentFile(TorrentInfo);
 
 			System.out.println("Torrent has " + mTorrentInfo.piece_hashes.length + " pieces of length " + mTorrentInfo.piece_length);
 			System.out.println("Total file length is " + mTorrentInfo.file_length);
 
+			// Generate and save a peer ID
 			Globals.peerID = PeerUtil.getPeerID();
+
+			// Open a TCP socket to listen on
 			Globals.tcpPort = PeerUtil.openTCP();
+
 			Globals.torrentInfo = mTorrentInfo;
 
-			System.out.println(Globals.torrentInfo.info_hash.array());
-
+			// Get the peers from the tracker
 			List<PeerInfo> peerList = TrackerUtil.getPeers();
 			if (peerList == null) {
 				System.out.println("There was a problem contacting the tracker");
@@ -49,17 +55,20 @@ public class Main {
 
 			PeerConnection peerConnection = null;
 
-			System.out.println("Peers:");
 			for (PeerInfo peer : peerList) {
-				System.out.println("  Peer:  " + peer);
+				// Iterate through peers, only use the one
+				// that has an ID starting with RU1103
 				if (peer.getPeerID().contains("RU1103")) {
-					peerConnection = PeerUtil.connectToPeer(peer);
+					peerConnection = PeerUtil.handshakeWithPeer(peer);
 					break;
 				}
 			}
 
+			// If we have made a handshake with a peer...
 			if (peerConnection != null) {
-				if (peerConnection.setupDownload()) {
+				// Try to get unchocked by the other peer
+				if (peerConnection.indicateInterest()) {
+					// If we get unchocked, start downloading
 					peerConnection.doDownload();
 				}
 				peerConnection.closeConnection();
@@ -70,7 +79,13 @@ public class Main {
 
 			TrackerUtil.sendCompleted();
 
-			System.out.println("---END---");
+			System.out.println("---DONE--DOWNLOADING---");
+
+			// Wait for a keypress to exit
+			System.out.println("Press any key to stop seeding");
+			System.in.read();
+
+			PeerUtil.closeTCP();
 
 		} catch (Exception e) {
 			e.printStackTrace();
