@@ -192,11 +192,6 @@ public class PeerConnection {
 				Arrays.fill(mCurrentPieceBytes, (byte) 0);
 				requestBeginOffset = 0;
 			}
-
-			// Check to see if we're done downloading the file
-			if (finalPieceRemaining <= 0) {
-				currentPiece++;
-			}
 		}
 	}
 

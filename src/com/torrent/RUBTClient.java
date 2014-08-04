@@ -53,36 +53,42 @@ public class RUBTClient {
 				return;
 			}
 
-			PeerConnection peerConnection = null;
+			if(mTorrentFile.exists() && mTorrentFile.length() == mTorrentInfo.file_length) {
+				// Already done downloading the file
+				System.out.println("File(s) already downloaded");
+			} else {
 
-			for (PeerInfo peer : peerList) {
-				// Iterate through peers, only use the one
-				// that has an ID starting with RU1103
-				if (peer.getPeerID().contains("RU1103")) {
-					peerConnection = PeerUtil.handshakeWithPeer(peer);
-					break;
+				PeerConnection peerConnection = null;
+
+				for (PeerInfo peer : peerList) {
+					// Iterate through peers, only use the one
+					// that has an ID starting with RU1103
+					if (peer.getPeerID().contains("RU1103")) {
+						peerConnection = PeerUtil.handshakeWithPeer(peer);
+						break;
+					}
 				}
-			}
 
-			// If we have made a handshake with a peer...
-			if (peerConnection != null) {
-				// Try to get unchocked by the other peer
-				if (peerConnection.indicateInterest()) {
-					// If we get unchocked, start downloading
-					peerConnection.doDownload();
+				// If we have made a handshake with a peer...
+				if (peerConnection != null) {
+					// Try to get unchocked by the other peer
+					if (peerConnection.indicateInterest()) {
+						// If we get unchocked, start downloading
+						peerConnection.doDownload();
+					}
+					peerConnection.closeConnection();
 				}
-				peerConnection.closeConnection();
+
+				Globals.downloadFileOut.flush();
+				Globals.downloadFileOut.close();
+
+				TrackerUtil.sendCompleted();
+
+				System.out.println("---DONE--DOWNLOADING---");
 			}
-
-			Globals.downloadFileOut.flush();
-			Globals.downloadFileOut.close();
-
-			TrackerUtil.sendCompleted();
-
-			System.out.println("---DONE--DOWNLOADING---");
 
 			// Wait for a keypress to exit
-			System.out.println("Press any key to stop seeding");
+			System.out.println("Press <ENTER> to stop seeding");
 			System.in.read();
 
 			PeerUtil.closeTCP();
