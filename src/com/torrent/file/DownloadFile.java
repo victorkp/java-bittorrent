@@ -10,22 +10,39 @@ public class DownloadFile {
 	private static long mPieceLength = 16384;
 
 	private static class FilePiece {
+		public enum Status {
+			NOT_DOWNLOADED,
+			DOWNLOADING,
+			DOWNLOADED };
+
 		// The bytes that make up this file piece
 		public byte[] bytes;
 
 		// Whether or not this file piece has
 		// had its "bytes" field set
-		public boolean isSet = false;
+		public Status downloadStatus = Status.NOT_DOWNLOADED;
 	}
 
-	// Number of pieces that compose this file
+	/**
+	 * Number of pieces that compose this file
+	 */
 	private int mNumPieces;
 
-	// Pieces of the DownloadFile
+	/**
+	 * Pieces of the DownloadFile
+	 */
 	private ArrayList<FilePiece> mPieces;
 
-	// Total file length;
+	/**
+	 * Total file length;
+	 */
 	private long mLength;
+
+	/**
+	 * The path this file should be written to
+	 * null if there is only one file being downloaded
+	 */
+	private String mFilePath;
 
 	/**
 	 * Sets how many bytes pieces are, as 
@@ -35,6 +52,11 @@ public class DownloadFile {
 		mPieceLength = length;
 	}
 
+	/**
+	 * Create a download file
+	 * @param numPieces the number of pieces that compose this file
+	 * @param length the total file's length
+	 */
 	public DownloadFile(int numPieces, long length){
 		mNumPieces = numPieces;
 		mLength = length;
@@ -48,12 +70,37 @@ public class DownloadFile {
 	}
 
 	/**
+	 * @param numPieces the number of pieces that compose this file
+	 * @param length the total file's length
+	 * @param path the path that this file should be written to
+	 */
+	public DownloadFile(int numPieces, int length, String path){
+		this(numPieces, length);
+		mFilePath = path;
+	}
+
+	/**
+	 * The path this file should be written to
+	 */
+	public String getPath(){
+		return mFilePath;
+	}
+
+	/**
+	 * Indicate this piece is being downloaded
+	 */
+	public void setDownloading(int index, boolean isBeingDownloaded){
+		mPieces.get(index).downloadStatus = (isBeingDownloaded) ? 
+					FilePiece.Status.DOWNLOADING : FilePiece.Status.NOT_DOWNLOADED;
+	}
+
+	/**
 	 * Set a piece of this file
 	 */
 	public void setPiece(int index, byte[] bytes){
 		FilePiece piece = mPieces.get(index);
 		piece.bytes = bytes;
-		piece.isSet = true;
+		piece.downloadStatus = FilePiece.Status.DOWNLOADED;
 	}
 
 	/**
@@ -61,13 +108,13 @@ public class DownloadFile {
 	 * file have been downloaded
 	 */
 	public boolean isFileDownloaded() {
-		boolean allDownloaded = true;
-
 		for(FilePiece piece : mPieces){
-			allDownloaded &= piece.isSet;
+			if(piece.downloadStatus != FilePiece.Status.DOWNLOADED){
+				return false;
+			}
 		}
 
-		return allDownloaded;
+		return true;
 	}
 
 	/**
