@@ -18,7 +18,6 @@ import java.util.List;
 
 import com.torrent.peer.PeerInfo;
 import com.torrent.util.Bencoder2;
-import com.torrent.util.Globals;
 import com.torrent.util.HexStringConverter;
 import com.torrent.util.StreamUtil;
 
@@ -65,22 +64,33 @@ public class TrackerUtil {
 	}
 
 	private static String mAnnounceURL;
+	private static ByteBuffer mInfoHash;
+	private static int mFileLength;
+
+	private static String mPeerID;
+	private static int mTcpPort;
 
 	private static Thread mTcpThread;
 	private static ServerSocket mTcpSocket;
 
+	public static void setParams(String announceURL, ByteBuffer infoHash, int fileLength, String peerID, int tcpPort) {
+		mAnnounceURL = announceURL;
+		mInfoHash = infoHash;
+		mFileLength = fileLength;
+		mPeerID = peerID;
+		mTcpPort = tcpPort;
+	}
+
 	public static List<PeerInfo> getPeers() {
 		try {
-			ByteBuffer infoHash = Globals.torrentInfo.info_hash;
-			mAnnounceURL = Globals.torrentInfo.announce_url.toString();
 
 			// Add all the URL params needed (info hash, our peer id, the port
 			// we'll listen on)
 			// Also say we downloaded/uploaded nothing and that the current
 			// event is STARTED
-			String connectURL = mAnnounceURL + "?" + Keys.INFO_HASH + "=" + HexStringConverter.toHexString(infoHash.array()) + "&" + Keys.PEER_ID + "="
-					+ HexStringConverter.toHexString(Globals.peerID.getBytes()) + "&" + Keys.PORT + "=" + Globals.tcpPort + "&" + Keys.DOWNLOADED + "=0&" + Keys.UPLOADED + "=0&" + Keys.LEFT + "="
-					+ Globals.torrentInfo.file_length + "&" + Keys.EVENT + "=" + Keys.Events.STARTED;
+			String connectURL = mAnnounceURL + "?" + Keys.INFO_HASH + "=" + HexStringConverter.toHexString(mInfoHash.array()) + "&" + Keys.PEER_ID + "="
+					+ HexStringConverter.toHexString(mPeerID.getBytes()) + "&" + Keys.PORT + "=" + mTcpPort + "&" + Keys.DOWNLOADED + "=0&" + Keys.UPLOADED + "=0&" + Keys.LEFT + "="
+					+ mFileLength + "&" + Keys.EVENT + "=" + Keys.Events.STARTED;
 
 			URL trackerURL = new URL(connectURL);
 
@@ -152,13 +162,11 @@ public class TrackerUtil {
 
 	public static void sendCompleted() {
 		try {
-			ByteBuffer infoHash = Globals.torrentInfo.info_hash;
-			mAnnounceURL = Globals.torrentInfo.announce_url.toString();
 	
 			// Add all the URL params needed (info hash, our peer id, the port we'll listen on)
 			// Also say we downloaded everything and that the current event is COMPLETED
-			String connectURL = mAnnounceURL + "?" + Keys.INFO_HASH + "=" + HexStringConverter.toHexString(infoHash.array()) + "&" + Keys.PEER_ID + "="
-					+ HexStringConverter.toHexString(Globals.peerID.getBytes()) + "&" + Keys.PORT + "=" + Globals.tcpPort + "&" + Keys.DOWNLOADED + "=" + Globals.downloadFile.length() + "&" + Keys.UPLOADED + "=0&" + Keys.LEFT + "=0&"
+			String connectURL = mAnnounceURL + "?" + Keys.INFO_HASH + "=" + HexStringConverter.toHexString(mInfoHash.array()) + "&" + Keys.PEER_ID + "="
+					+ HexStringConverter.toHexString(mPeerID.getBytes()) + "&" + Keys.PORT + "=" + mTcpPort + "&" + Keys.DOWNLOADED + "=" + mFileLength + "&" + Keys.UPLOADED + "=0&" + Keys.LEFT + "=0&"
 					+ Keys.EVENT + "=" + Keys.Events.COMPLETED;
 	
 			URL trackerURL = new URL(connectURL);

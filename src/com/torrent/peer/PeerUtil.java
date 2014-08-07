@@ -10,7 +10,6 @@ import java.io.InputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 
-import com.torrent.util.Globals;
 import com.torrent.util.TorrentInfo;
 
 public class PeerUtil {

@@ -8,7 +8,6 @@ package com.torrent.peer;
 
 import java.nio.ByteBuffer;
 
-import com.torrent.util.Globals;
 import com.torrent.util.HexStringConverter;
 import com.torrent.util.TorrentInfo;
 
@@ -27,6 +26,14 @@ public class PeerMessage {
 		public static byte PIECE = 0x07;
 		public static byte CANCEL = 0x08;
 	}
+	
+	private static ByteBuffer mInfoHash;
+	private static String mPeerID;
+	
+	public static void setParams(ByteBuffer infoHash, String peerID){
+		mInfoHash = infoHash;
+		mPeerID = peerID;
+	}
 
 	/**
 	 * Handshakes have the following format:
@@ -36,8 +43,8 @@ public class PeerMessage {
 		byte[] bytes = new byte[68];
 		
 		System.arraycopy(HANDSHAKE.getBytes(), 0, bytes, 0, 20);
-		System.arraycopy(Globals.torrentInfo.info_hash.array(), 0, bytes, 28, 20);
-		System.arraycopy(Globals.peerID.getBytes(), 0, bytes, 48, 20);
+		System.arraycopy(mInfoHash.array(), 0, bytes, 28, 20);
+		System.arraycopy(mPeerID.getBytes(), 0, bytes, 48, 20);
 		
 		return bytes;
 	}

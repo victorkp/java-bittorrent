@@ -21,7 +21,7 @@ public class DownloadFile {
 	 * @param length the total file's length
 	 * @param path the path that this file should be written to
 	 */
-	public DownloadFile(int length, String path){
+	public DownloadFile(String path, int length){
 		mLength = length;
 		mFilePath = path;
 	}

@@ -55,8 +55,14 @@ public class FileManager {
 	 */
 	private ArrayList<Piece> mPieces;
 
-	public FileManager (String path, List<DownloadFile> files) throws Exception {
+	public FileManager (String path, List<DownloadFile> files, int numPieces) throws Exception {
 		mRoot = new File(path);
+
+		// Add the correct number of pieces to mPieces
+		mPieces = new ArrayList<Piece>(numPieces);
+		for(int i = 0; i < numPieces; i++){
+			mPieces.add(new Piece());
+		}
 
 		mDownloadFiles = files;
 
@@ -76,6 +82,28 @@ public class FileManager {
 	}
 
 	/**
+	 * Get the first piece that needs to be downloaded
+	 */
+	public int getNeededPiece(){
+		return getNeededPiece(0);
+	}
+
+	/**
+	 * Get the first piece that needs to be downloaded
+	 * that has index greater than start
+	 * @param start the minimum index allowed
+	 */
+	public int getNeededPiece(int start){
+		for(int i = start; i < mPieces.size(); i++){
+			if(mPieces.get(i).downloadStatus == Piece.Status.NOT_DOWNLOADED){
+				return i;
+			}
+		}
+
+		return -1;
+	}
+
+	/**
 	 * Indicate this piece is being or not downloaded
 	 */
 	public void setPieceDownloading(int index, boolean isBeingDownloaded){
@@ -90,6 +118,15 @@ public class FileManager {
 		Piece piece = mPieces.get(index);
 		piece.bytes = bytes;
 		piece.downloadStatus = Piece.Status.DOWNLOADED;
+
+		if(arePiecesDownloaded()){
+			try{
+				System.out.println("Saving...");
+				writeToDisk();
+			} catch (Exception e){
+				e.printStackTrace();
+			}
+		}
 	}
 
 	/**
@@ -110,7 +147,7 @@ public class FileManager {
 	 * Write the pieces to the file system
 	 * in the appropriate file(s)
 	 */
-	public void saveToDisk(DownloadFile file) throws Exception {
+	private void writeToDisk() throws Exception {
 		if(!arePiecesDownloaded()){
 			throw new Exception("Not all pieces are downloaded");
 		}
