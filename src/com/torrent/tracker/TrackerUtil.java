@@ -9,13 +9,13 @@ package com.torrent.tracker;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
-import java.net.ServerSocket;
 import java.net.URL;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
+import com.torrent.file.FileManager;
 import com.torrent.peer.PeerInfo;
 import com.torrent.util.Bencoder2;
 import com.torrent.util.HexStringConverter;
@@ -35,15 +35,15 @@ public class TrackerUtil {
 		public static final String DOWNLOADED = "downloaded";
 		public static final String LEFT = "left";
 		public static final String EVENT = "event";
-
-		/**
-		 * Possible values for the EVENT parameter key
-		 */
-		public static class Events {
-			public static final String STARTED = "started";
-			public static final String COMPLETED = "completed";
-			public static final String STOPPED = "stopped";
-		}
+	}
+	
+	/**
+	 * Possible values for the EVENT parameter key
+	 */
+	public static class Events {
+		public static final String STARTED = "started";
+		public static final String COMPLETED = "completed";
+		public static final String STOPPED = "stopped";
 	}
 
 	/**
@@ -69,19 +69,21 @@ public class TrackerUtil {
 
 	private static String mPeerID;
 	private static int mTcpPort;
+	
+	private static FileManager mFileManager;
 
-	private static Thread mTcpThread;
-	private static ServerSocket mTcpSocket;
+	private static boolean mFirstStart = true;
 
-	public static void setParams(String announceURL, ByteBuffer infoHash, int fileLength, String peerID, int tcpPort) {
+	public static void setParams(String announceURL, ByteBuffer infoHash, int fileLength, String peerID, int tcpPort, FileManager fileManager) {
 		mAnnounceURL = announceURL;
 		mInfoHash = infoHash;
 		mFileLength = fileLength;
 		mPeerID = peerID;
 		mTcpPort = tcpPort;
+		mFileManager = fileManager;
 	}
 
-	public static List<PeerInfo> getPeers() {
+	public static List<PeerInfo> getPeers(boolean firstStart) {
 		try {
 
 			// Add all the URL params needed (info hash, our peer id, the port
@@ -89,8 +91,9 @@ public class TrackerUtil {
 			// Also say we downloaded/uploaded nothing and that the current
 			// event is STARTED
 			String connectURL = mAnnounceURL + "?" + Keys.INFO_HASH + "=" + HexStringConverter.toHexString(mInfoHash.array()) + "&" + Keys.PEER_ID + "="
-					+ HexStringConverter.toHexString(mPeerID.getBytes()) + "&" + Keys.PORT + "=" + mTcpPort + "&" + Keys.DOWNLOADED + "=0&" + Keys.UPLOADED + "=0&" + Keys.LEFT + "="
-					+ mFileLength + "&" + Keys.EVENT + "=" + Keys.Events.STARTED;
+					+ HexStringConverter.toHexString(mPeerID.getBytes()) + "&" + Keys.PORT + "=" + mTcpPort + "&" + Keys.DOWNLOADED + "=" + mFileManager.getDownloadedBytes() + "&"
+					+ Keys.UPLOADED + "=" + mFileManager.getUploadedBytes() +"&" + Keys.LEFT + "="
+					+ (mFileLength - mFileManager.getDownloadedBytes()) + ((mFirstStart) ? ("&" + Keys.EVENT + "=" + Events.STARTED) : (""));
 
 			URL trackerURL = new URL(connectURL);
 
@@ -115,6 +118,9 @@ public class TrackerUtil {
 
 				return null;
 			} else {
+				// We've made the first request to the tracker
+				mFirstStart = false;
+				
 				// Get the tracker's response
 				InputStream getResponse = getRequest.getInputStream();
 				byte[] response = StreamUtil.streamToBytes(getResponse);
@@ -130,6 +136,8 @@ public class TrackerUtil {
 						ArrayList<HashMap> peerMapList = (ArrayList<HashMap>) decodedResponse.get(TrackerConstants.PEERS);
 
 						for (HashMap<ByteBuffer, Object> peerMap : peerMapList) {
+							
+							// Translate this data structure into a PeerInfo object
 							PeerInfo peer = new PeerInfo();
 							for (ByteBuffer key : peerMap.keySet()) {
 								String attributeKey = new String(key.array());
@@ -160,14 +168,16 @@ public class TrackerUtil {
 		}
 	}
 
-	public static void sendCompleted() {
+	public static void sendEvent(String event) {
 		try {
 	
 			// Add all the URL params needed (info hash, our peer id, the port we'll listen on)
 			// Also say we downloaded everything and that the current event is COMPLETED
 			String connectURL = mAnnounceURL + "?" + Keys.INFO_HASH + "=" + HexStringConverter.toHexString(mInfoHash.array()) + "&" + Keys.PEER_ID + "="
-					+ HexStringConverter.toHexString(mPeerID.getBytes()) + "&" + Keys.PORT + "=" + mTcpPort + "&" + Keys.DOWNLOADED + "=" + mFileLength + "&" + Keys.UPLOADED + "=0&" + Keys.LEFT + "=0&"
-					+ Keys.EVENT + "=" + Keys.Events.COMPLETED;
+					+ HexStringConverter.toHexString(mPeerID.getBytes()) + "&" + Keys.PORT + "=" + mTcpPort + "&" 
+					+ Keys.DOWNLOADED + "=" + mFileManager.getDownloadedBytes() + "&" + Keys.UPLOADED + "=" + mFileManager.getUploadedBytes() + "&"
+					+ Keys.LEFT + "=" + (mFileLength - mFileManager.getDownloadedBytes()) + "&"
+					+ Keys.EVENT + "=" + event;
 	
 			URL trackerURL = new URL(connectURL);
 	
@@ -183,7 +193,7 @@ public class TrackerUtil {
 			int status = getRequest.getResponseCode();
 			
 			if(status != 200){
-				System.out.println("Problem telling tracker the file is downloaded");
+				System.out.println("Problem telling tracker the \"" + event +"\" event.");
 			}
 		} catch (Exception e){
 			e.printStackTrace();

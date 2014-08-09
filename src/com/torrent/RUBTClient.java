@@ -61,7 +61,7 @@ public class RUBTClient {
 
 			FileManager.setPieceLength(mTorrentInfo.piece_length);
 
-			// For now, only handle cases with one file
+			// For now, only handle torrents with one file and no folders
 			List<DownloadFile> fileList = new ArrayList<DownloadFile>();
 			fileList.add(new DownloadFile(mTorrentInfo.file_name, mTorrentInfo.file_length));
 			
@@ -74,7 +74,7 @@ public class RUBTClient {
 			// Open a TCP socket to listen on
 			mTcpPort = PeerUtil.openTCP();
 
-			TrackerUtil.setParams(mTorrentInfo.announce_url.toString(), mTorrentInfo.info_hash, mTorrentInfo.file_length, mPeerID, mTcpPort);
+			TrackerUtil.setParams(mTorrentInfo.announce_url.toString(), mTorrentInfo.info_hash, mTorrentInfo.file_length, mPeerID, mTcpPort, mFileManager);
 			PeerConnection.setParams(mTorrentInfo.announce_url.toString(), mTorrentInfo.info_hash, mTorrentInfo.file_length, mTorrentInfo.piece_hashes, mTorrentInfo.piece_length, mPeerID, mTcpPort);
 			PeerConnection.setFileManager(mFileManager);
 			PeerMessage.setParams(mTorrentInfo.info_hash, mPeerID);
@@ -112,7 +112,7 @@ public class RUBTClient {
 					peerConnection.closeConnection();
 				}
 
-				TrackerUtil.sendCompleted();
+				TrackerUtil.sendEvent(TrackerUtil.Events.COMPLETED);
 
 				System.out.println("---DONE--DOWNLOADING---");
 			}
@@ -120,6 +120,8 @@ public class RUBTClient {
 			// Wait for a keypress to exit
 			System.out.println("Press <ENTER> to stop seeding");
 			System.in.read();
+			
+			TrackerUtil.sendEvent(TrackerUtil.Events.STOPPED);
 
 			PeerUtil.closeTCP();
 

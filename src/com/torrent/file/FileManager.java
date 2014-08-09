@@ -54,6 +54,12 @@ public class FileManager {
 	 * Pieces of the torrent
 	 */
 	private ArrayList<Piece> mPieces;
+	
+	/**
+	 * The number of bytes requested with the
+	 * intent of uploading them to other peers
+	 */
+	private int mUploadedBytes = 0;
 
 	public FileManager (String path, List<DownloadFile> files, int numPieces) throws Exception {
 		mRoot = new File(path);
@@ -141,6 +147,44 @@ public class FileManager {
 		}
 
 		return true;
+	}
+
+	/**
+	 * @return The number of bytes that have been downloaded
+	 */
+	public int getDownloadedBytes() {
+		int bytes = 0;
+		
+		for(Piece p : mPieces){
+			if(p.downloadStatus == Piece.Status.DOWNLOADED){
+				bytes += p.bytes.length;
+			}
+		}
+		
+		return bytes;
+	}
+	
+	/**
+	 * @return The number of bytes that were requested for upload
+	 */
+	public int getUploadedBytes() {
+		return mUploadedBytes;
+	}
+	
+	/**
+	 * Get a piece's bytes if it has been downloaded;
+	 * Increment the number of bytes uploaded
+	 * @return the bytes of the piece, null if not already downloaded
+	 */
+	public byte[] getPieceForUpload(int index) {
+		Piece p = mPieces.get(index);
+		
+		if(p.downloadStatus == Piece.Status.DOWNLOADED){
+			mUploadedBytes += p.bytes.length;
+			return p.bytes;
+		}
+		
+		return null;
 	}
 
 	/**

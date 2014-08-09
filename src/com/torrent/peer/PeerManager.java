@@ -9,12 +9,12 @@ package com.torrent.peer;
 import java.util.ArrayList;
 import java.util.HashMap;
 
-public class PeerConnections {
+public class PeerManager {
 	
 	ArrayList<PeerConnection> mConnectionList;
 	HashMap<PeerInfo, PeerConnection> mConnectionMap;
 	
-	public PeerConnections(){
+	public PeerManager(){
 		mConnectionList = new ArrayList<PeerConnection>();
 		mConnectionMap = new HashMap<PeerInfo, PeerConnection>();
 	}
