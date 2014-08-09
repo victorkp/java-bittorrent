@@ -200,6 +200,8 @@ public class PeerConnection {
 	 * (if the other peer is not choking us)
 	 */
 	public boolean indicateInterest() {
+		mInterested = true;
+		
 		try {
 			// Ignore the bitfield response
 			byte[] lengthPrefix = new byte[4];
@@ -228,16 +230,15 @@ public class PeerConnection {
 		mCurrentPieceBytes = new byte[mPieceLength];
 
 		int finalPieceLength, finalPieceRemaining;
-		int currentPiece = 0;
+		int currentPiece = mFileManager.getNeededPiece();
 		int requestBeginOffset = 0;
 		int requestLength = 16384;
 
 		// How long the final piece in the file is
 		finalPieceRemaining = finalPieceLength = mFileLength - ((mPieceHashes.length - 1) * mPieceLength);
 
-		// Check to see if we still need pieces
-		while (true) {
-			// We still need parts of the file
+		while (currentPiece != -1 && mInterested) {
+			// We still need parts of the file and we are interested in this Peer 
 
 			// Keep track that this piece is being downloaded, so that other
 			// PeerConnections
@@ -273,28 +274,21 @@ public class PeerConnection {
 						// and finish
 						doHave(currentPiece);
 
+						mBytesReceived += finalPieceLength;
 						mFileManager.setPieceDownloaded(currentPiece, Arrays.copyOf(mCurrentPieceBytes, finalPieceLength));
 
-						// If there's nothing left to download, then exit
-						if ((currentPiece = mFileManager.getNeededPiece()) == -1) {
-							break;
-						}
+						// Pick another piece that needs to be downloaded
+						currentPiece = mFileManager.getNeededPiece();
 					}
-				} else if (checkPieceHash(currentPiece, mPieceLength)) { // otherwise
-																			// hash
-																			// the
-																			// whole
-																			// piece
-					// The hash is good, so tell the peer, write the data, and
-					// move on
+				} else if (checkPieceHash(currentPiece, mPieceLength)) { // not last piece, so hash all bytes
+					// The hash is good, so tell the peer,
 					doHave(currentPiece);
 
+					mBytesReceived += mCurrentPieceBytes.length;
 					mFileManager.setPieceDownloaded(currentPiece, Arrays.copyOf(mCurrentPieceBytes, mCurrentPieceBytes.length));
 
-					// If there's nothing left to download, then exit
-					if ((currentPiece = mFileManager.getNeededPiece()) == -1) {
-						break;
-					}
+					// Pick another piece that needs to be downloaded
+					currentPiece = mFileManager.getNeededPiece();
 				}
 
 				Arrays.fill(mCurrentPieceBytes, (byte) 0);

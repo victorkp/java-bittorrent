@@ -101,7 +101,7 @@ public class RUBTClient {
 			
 			mPeerManager.start();
 			
-			
+			/*
 			// Get the peers from the tracker
 			List<PeerInfo> peerList = TrackerUtil.getPeers();
 			if (peerList == null) {
@@ -139,12 +139,15 @@ public class RUBTClient {
 
 				System.out.println("---DONE--DOWNLOADING---");
 			}
+			
+			*/
 
 			// Wait for a keypress to exit
 			System.out.println("Press <ENTER> to stop seeding");
 			System.in.read();
 			
-			TrackerUtil.sendEvent(TrackerUtil.Events.STOPPED);
+			mPeerManager.stop();
+			// TrackerUtil.sendEvent(TrackerUtil.Events.STOPPED);
 
 			PeerUtil.closeTCP();
 

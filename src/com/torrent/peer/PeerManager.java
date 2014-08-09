@@ -92,7 +92,8 @@ public class PeerManager {
 			public void run() {
 				// While the tracker 
 				while(mTrackerPolling){
-					mAvailablePeers = TrackerUtil.getPeers();
+					// Get the peers and filter by IP address
+					mAvailablePeers = filterPeers(TrackerUtil.getPeers());
 					
 					// Check to make sure the tracker could be reached
 					if(mAvailablePeers == null){
@@ -102,7 +103,17 @@ public class PeerManager {
 						break;
 					}
 					
+					if(mAvailablePeers.isEmpty()){
+						System.out.println("Error: no peers available, cannot download");
+						PeerManager.this.stop();
+						break;
+					}
 					
+					
+					// Wait the Tracker's request interval
+					try{
+						Thread.sleep(TrackerUtil.getInterval());
+					} catch (InterruptedException e){ }
 				}
 			}
 		})).start();
@@ -122,6 +133,30 @@ public class PeerManager {
 		} catch (InterruptedException e){
 			e.printStackTrace();
 		}
+		
+		// Tell the tracker that we're stopped
+		TrackerUtil.sendEvent(TrackerUtil.Events.STOPPED);
+	}
+	
+	/**
+	 * Filter peers in a list by IP address
+	 * @param peerList a list of peers
+	 * @return a list of peers that can be connected to, as specified by assignment
+	 */
+	private List<PeerInfo> filterPeers(List<PeerInfo> peerList){
+		if(peerList == null){
+			return null;
+		}
+		
+		List<PeerInfo> goodPeers = new ArrayList<PeerInfo>();
+		
+		for(PeerInfo peer : peerList) {
+			if(peer.getIP().equals("128.6.5.130") || peer.getIP().equals("128.6.5.131")){
+				goodPeers.add(peer);
+			}
+		}
+
+		return goodPeers;
 	}
 
 	private void addPeerConnection(PeerConnection conn) {
