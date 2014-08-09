@@ -72,6 +72,13 @@ public class TrackerUtil {
 	
 	private static FileManager mFileManager;
 
+	/**
+	 * The interval that the tracker wants
+	 * between regular requests to the tracker.
+	 * Defaults to 60 seconds.
+	 */
+	private static int mInterval = 60000;
+	
 	private static boolean mFirstStart = true;
 
 	public static void setParams(String announceURL, ByteBuffer infoHash, int fileLength, String peerID, int tcpPort, FileManager fileManager) {
@@ -83,7 +90,6 @@ public class TrackerUtil {
 		mFileManager = fileManager;
 	}
 
-	
 	/**
 	 * Get a list of peers from the tracker.
 	 * Sends a STARTED event if this is the first
@@ -161,6 +167,11 @@ public class TrackerUtil {
 							peerInfos.add(peer);
 						}
 					}
+					
+					if (decodedResponse.containsKey(TrackerConstants.INTERVAL)) {
+						Object interval = decodedResponse.get(TrackerConstants.INTERVAL);
+						System.out.println("Interval is " + interval.getClass());
+					}
 
 					return peerInfos;
 				} catch (Exception e) {
@@ -204,6 +215,14 @@ public class TrackerUtil {
 		} catch (Exception e){
 			e.printStackTrace();
 		}
+	}
+	
+	/**
+	 * Get the interval that the tracker wants regular
+	 * requests to occur at
+	 */
+	public static int getInterval() {
+		return mInterval;
 	}
 
 }

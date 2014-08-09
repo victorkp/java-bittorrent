@@ -99,6 +99,8 @@ public class RUBTClient {
 			// Setup the PeerManager that will handle which peers to use
 			mPeerManager = new PeerManager(mTcpSocket);
 			
+			mPeerManager.start();
+			
 			
 			// Get the peers from the tracker
 			List<PeerInfo> peerList = TrackerUtil.getPeers();

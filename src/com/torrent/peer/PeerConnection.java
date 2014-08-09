@@ -44,7 +44,7 @@ public class PeerConnection {
 
 	private static FileManager mFileManager;
 
-	public static void setFileManager(FileManager fileManager){
+	public static void setFileManager(FileManager fileManager) {
 		mFileManager = fileManager;
 	}
 
@@ -63,22 +63,17 @@ public class PeerConnection {
 	private boolean mInterested = false;
 
 	private byte[] mCurrentPieceBytes;
-	
+
 	/**
-	 * How many bytes received by this peer in the last period
-	 * of the PeerManager
+	 * How many bytes received by this peer in the last period of the
+	 * PeerManager
 	 */
 	private int mBytesReceived;
-	
+
 	/**
-	 * How many bytes sent to this peer in the
-	 * last period of the PeerManager
+	 * How many bytes sent to this peer in the last period of the PeerManager
 	 */
 	private int mBytesSent;
-
-	public static void setParams() {
-
-	}
 
 	public PeerConnection(PeerInfo peer) {
 		mPeer = peer;
@@ -86,12 +81,48 @@ public class PeerConnection {
 			mSocket = new Socket(mPeer.getIP(), mPeer.getPort());
 			mOut = mSocket.getOutputStream();
 			mIn = mSocket.getInputStream();
-
 			mDataIn = new DataInputStream(mIn);
 			mDataOut = new DataOutputStream(mOut);
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
+	}
+
+	/**
+	 * Create a new PeerConnection with a peer that initiated the connection
+	 * 
+	 * @param socket
+	 *            the socket the other peer initiated
+	 */
+	public PeerConnection(Socket socket) {
+		try {
+			mSocket = socket;
+			mOut = mSocket.getOutputStream();
+			mIn = mSocket.getInputStream();
+			mDataIn = new DataInputStream(mIn);
+			mDataOut = new DataOutputStream(mOut);
+
+			// Parse the handshake
+			mSocket.setSoTimeout(20000);
+
+			byte[] response = new byte[68];
+			mDataIn.readFully(response);
+
+			byte[] responseInfoHash = Arrays.copyOfRange(response, 28, 48);
+			
+			// If the hash is correct
+			if (Arrays.equals(mInfoHash.array(), responseInfoHash)) {
+				// Then setup the peer fully
+				String peerId = new String(Arrays.copyOfRange(response, 48, 68));
+				mPeer = new PeerInfo(socket.getInetAddress().getHostAddress(), socket.getPort(), peerId);
+			} else {
+				// This is a bad peer
+				mPeer = null;
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
 	}
 
 	public PeerInfo getPeerInfo() {
@@ -109,16 +140,14 @@ public class PeerConnection {
 	}
 
 	/**
-	 * Make a handshake with the peer
-	 * 
+	 * Make a handshake with the peer:
+	 * send handshake, and parse other's handshake
 	 * @return if the handshake seemed successful
 	 */
 	public boolean doHandshake() {
 		try {
-			mSocket.setSoTimeout(20000);
-			mDataOut.write(PeerMessage.makeHandshake());
-			mDataOut.flush();
-
+			sendHandshake();
+			
 			byte[] response = new byte[68];
 			mDataIn.readFully(response);
 
@@ -134,11 +163,26 @@ public class PeerConnection {
 	}
 	
 	/**
+	 * Send our handshake to the peer, expect no response
+	 */
+	public void sendHandshake(){
+		try {
+			mSocket.setSoTimeout(20000);
+			mDataOut.write(PeerMessage.makeHandshake());
+			mDataOut.flush();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
+	/**
 	 * Tell the peer that a piece has been downloaded
-	 * @param index the index of the piece
+	 * 
+	 * @param index
+	 *            the index of the piece
 	 * @return true if successful
 	 */
-	public boolean doHave(int index){
+	public boolean doHave(int index) {
 		try {
 			mSocket.setSoTimeout(20000);
 			mDataOut.write(PeerMessage.makeHave(index));
@@ -152,11 +196,10 @@ public class PeerConnection {
 	}
 
 	/**
-	 * Indicate interest to the peer,
-	 * returns true if we may begin downloading
+	 * Indicate interest to the peer, returns true if we may begin downloading
 	 * (if the other peer is not choking us)
 	 */
-	public boolean indicateInterest () {
+	public boolean indicateInterest() {
 		try {
 			// Ignore the bitfield response
 			byte[] lengthPrefix = new byte[4];
@@ -195,8 +238,9 @@ public class PeerConnection {
 		// Check to see if we still need pieces
 		while (true) {
 			// We still need parts of the file
-			
-			// Keep track that this piece is being downloaded, so that other PeerConnections
+
+			// Keep track that this piece is being downloaded, so that other
+			// PeerConnections
 			// don't also try to download this piece
 			mFileManager.setPieceDownloading(currentPiece, true);
 
@@ -220,32 +264,39 @@ public class PeerConnection {
 
 			// If we have finished downloading this piece...
 			if (requestBeginOffset == mPieceLength || finalPieceRemaining <= 0) {
-				
-				// If this is the final piece, only hash up to the final piece length
-				if(currentPiece == mPieceHashes.length - 1){
-					if(checkPieceHash(currentPiece, finalPieceLength)){
-						// The hash is good, so tell the peer, write the data, and finish
+
+				// If this is the final piece, only hash up to the final piece
+				// length
+				if (currentPiece == mPieceHashes.length - 1) {
+					if (checkPieceHash(currentPiece, finalPieceLength)) {
+						// The hash is good, so tell the peer, write the data,
+						// and finish
 						doHave(currentPiece);
-						
+
 						mFileManager.setPieceDownloaded(currentPiece, Arrays.copyOf(mCurrentPieceBytes, finalPieceLength));
-						
+
 						// If there's nothing left to download, then exit
-						if((currentPiece = mFileManager.getNeededPiece()) == -1){
+						if ((currentPiece = mFileManager.getNeededPiece()) == -1) {
 							break;
 						}
 					}
-				} else if(checkPieceHash(currentPiece, mPieceLength)){ // otherwise hash the whole piece
-					// The hash is good, so tell the peer, write the data, and move on
+				} else if (checkPieceHash(currentPiece, mPieceLength)) { // otherwise
+																			// hash
+																			// the
+																			// whole
+																			// piece
+					// The hash is good, so tell the peer, write the data, and
+					// move on
 					doHave(currentPiece);
-					
+
 					mFileManager.setPieceDownloaded(currentPiece, Arrays.copyOf(mCurrentPieceBytes, mCurrentPieceBytes.length));
-					
+
 					// If there's nothing left to download, then exit
-					if((currentPiece = mFileManager.getNeededPiece()) == -1){
+					if ((currentPiece = mFileManager.getNeededPiece()) == -1) {
 						break;
 					}
 				}
-				
+
 				Arrays.fill(mCurrentPieceBytes, (byte) 0);
 				requestBeginOffset = 0;
 			}
@@ -253,10 +304,12 @@ public class PeerConnection {
 	}
 
 	/**
-	 * Compare the SHA-1 hash of this piece
-	 * with what's expected
-	 * @param index index of the piece to be checked
-	 * @param length how much of the piece should be hashed
+	 * Compare the SHA-1 hash of this piece with what's expected
+	 * 
+	 * @param index
+	 *            index of the piece to be checked
+	 * @param length
+	 *            how much of the piece should be hashed
 	 * @return true if the hash matches
 	 */
 	private boolean checkPieceHash(int index, int length) {
@@ -265,7 +318,7 @@ public class PeerConnection {
 			MessageDigest md = MessageDigest.getInstance("SHA-1");
 
 			pieceHash = md.digest(Arrays.copyOfRange(mCurrentPieceBytes, 0, length));
-			
+
 			return Arrays.equals(pieceHash, mPieceHashes[index].array());
 
 		} catch (NoSuchAlgorithmException e) {
@@ -380,6 +433,11 @@ public class PeerConnection {
 		}
 
 		return response;
+	}
+	
+	@Override
+	public String toString() {
+		return String.format("PeerConnection to %s, at %s:%s", mPeer.getPeerID(), mPeer.getIP(), mPeer.getPort());
 	}
 
 }
