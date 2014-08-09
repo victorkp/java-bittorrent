@@ -56,13 +56,25 @@ public class PeerConnection {
 	private DataInputStream mDataIn;
 	private DataOutputStream mDataOut;
 
-	private boolean mBeingChoked;
-	private boolean mOtherInterested;
+	private boolean mBeingChoked = true;
+	private boolean mOtherInterested = false;
 
-	private boolean mChoking;
-	private boolean mInterested;
+	private boolean mChoking = true;
+	private boolean mInterested = false;
 
 	private byte[] mCurrentPieceBytes;
+	
+	/**
+	 * How many bytes received by this peer in the last period
+	 * of the PeerManager
+	 */
+	private int mBytesReceived;
+	
+	/**
+	 * How many bytes sent to this peer in the
+	 * last period of the PeerManager
+	 */
+	private int mBytesSent;
 
 	public static void setParams() {
 

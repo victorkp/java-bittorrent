@@ -7,6 +7,7 @@
 package com.torrent;
 
 import java.io.File;
+import java.net.ServerSocket;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -14,6 +15,7 @@ import com.torrent.file.DownloadFile;
 import com.torrent.file.FileManager;
 import com.torrent.peer.PeerConnection;
 import com.torrent.peer.PeerInfo;
+import com.torrent.peer.PeerManager;
 import com.torrent.peer.PeerMessage;
 import com.torrent.peer.PeerUtil;
 import com.torrent.tracker.TrackerUtil;
@@ -41,10 +43,23 @@ public class RUBTClient {
 	private static String mPeerID;
 
 	/**
-	 * The TCP port that we will listen on for
+	 * The TCP socket that we will listen on for
+	 * connections by peers
+	 */
+	private static ServerSocket mTcpSocket;
+	
+	/**
+	 * The TCP port (corresponding to mTcpSocket)
+	 * that we will listen on for
 	 * connections by peers
 	 */
 	private static int mTcpPort;
+	
+	/**
+	 * Handles the retrieval, selection,
+	 * starting, and stopping of peers
+	 */
+	private static PeerManager mPeerManager;
 
 	public static void main(String[] args) {
 		if (!checkArguments(args)) {
@@ -72,13 +87,19 @@ public class RUBTClient {
 			mPeerID = PeerUtil.getPeerID();
 
 			// Open a TCP socket to listen on
-			mTcpPort = PeerUtil.openTCP();
-
+			mTcpSocket = PeerUtil.openTCP();
+			mTcpPort = mTcpSocket.getLocalPort();
+			
+			// Setup links among all the components that need to communicate
 			TrackerUtil.setParams(mTorrentInfo.announce_url.toString(), mTorrentInfo.info_hash, mTorrentInfo.file_length, mPeerID, mTcpPort, mFileManager);
 			PeerConnection.setParams(mTorrentInfo.announce_url.toString(), mTorrentInfo.info_hash, mTorrentInfo.file_length, mTorrentInfo.piece_hashes, mTorrentInfo.piece_length, mPeerID, mTcpPort);
 			PeerConnection.setFileManager(mFileManager);
 			PeerMessage.setParams(mTorrentInfo.info_hash, mPeerID);
-
+			
+			// Setup the PeerManager that will handle which peers to use
+			mPeerManager = new PeerManager(mTcpSocket);
+			
+			
 			// Get the peers from the tracker
 			List<PeerInfo> peerList = TrackerUtil.getPeers();
 			if (peerList == null) {

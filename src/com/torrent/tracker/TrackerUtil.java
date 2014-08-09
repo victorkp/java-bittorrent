@@ -83,7 +83,13 @@ public class TrackerUtil {
 		mFileManager = fileManager;
 	}
 
-	public static List<PeerInfo> getPeers(boolean firstStart) {
+	
+	/**
+	 * Get a list of peers from the tracker.
+	 * Sends a STARTED event if this is the first
+	 * request to the tracker
+	 */
+	public static List<PeerInfo> getPeers() {
 		try {
 
 			// Add all the URL params needed (info hash, our peer id, the port

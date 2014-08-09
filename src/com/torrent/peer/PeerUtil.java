@@ -60,18 +60,16 @@ public class PeerUtil {
 	 * 
 	 * @return the port number of the socket, -1 if failed
 	 */
-	public static int openTCP() {
+	public static ServerSocket openTCP() {
 		for (int port = PORT_MIN; port < PORT_MAX; port++) {
 			try {
-				mSocket = new ServerSocket(port);
-				return port;
-
+				return (mSocket = new ServerSocket(port));
 			} catch (Exception e) {
 			}
 		}
-		return -1;
+		return null;
 	}
-
+	
 	/**
 	 * Close the TCP socket that we were
 	 * listening to
