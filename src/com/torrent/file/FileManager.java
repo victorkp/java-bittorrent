@@ -1,6 +1,7 @@
 package com.torrent.file;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.util.ArrayList;
 import java.util.List;
@@ -89,15 +90,27 @@ public class FileManager {
 				if(mRoot.length() == files.get(0).getLength()){
 					// File exists and is correct length
 					setupPiecesFromFile(mRoot);
+
+					System.out.println("\n _____________________________ ");
+					System.out.println("|------------NOTE-------------|");
+					System.out.println("|-----File already exists-----|");
+					System.out.println("|---------Now seeding---------|");
+					System.out.println("|-----------------------------|");
 					return;
+				} else {
+					System.out.println("\n _____________________________ ");
+					System.out.println("|------------NOTE-------------|");
+					System.out.println("|-----File already exists-----|");
+					System.out.println("|-----but is wrong length-----|");
+					System.out.println("|--Overwriting existing file--|");
+					System.out.println("|-----------------------------|");
+
+					mRoot.delete();
 				}
 			}
 			
 			// Only one file, so mRoot will be that file
-			if (!mRoot.createNewFile()) {
-				mRoot.delete();
-				mRoot.createNewFile();
-			}
+			mRoot.createNewFile();
 		} else {
 			// Multiple files, so mRoot will be the directory
 			// containing the files
@@ -189,18 +202,19 @@ public class FileManager {
 		}
 		
 		int progress = (100 * (mPieces.size() - neededPieces.size())) / mPieces.size();
-		System.out.print(progress + "%");
+		int barProgress = progress;
+		System.out.print("|");
 		int bars = 0;
-		while(progress > 0){
+		while(barProgress > 0){
 			System.out.print("=");
-			progress -= 4;
+			barProgress -= 4;
 			bars++;
 		}
 		System.out.print(">");
 		for(int i = 25 - bars; i > 0; i--){
 			System.out.print(" ");
 		}
-		System.out.println("|");
+		System.out.println("| " + progress + "%");
 	}
 
 	/**
@@ -242,11 +256,38 @@ public class FileManager {
 	}
 	
 	/**
-	 * Setup
+	 * Setup the pieces from the already downloaded file
 	 * @param f the file that is completely downloaded
 	 */
 	private void setupPiecesFromFile(File file){
+		FileInputStream fstream = null;
 		
+		try {
+			fstream = new FileInputStream(file);
+
+			// Read the file's bytes into the pieces
+			for(int i = 0; i < mPieces.size() - 1; i++) {
+				mPieces.get(i).bytes = new byte[(int) mPieceLength];	
+				fstream.read(mPieces.get(i).bytes);
+				mPieces.get(i).downloadStatus = Piece.Status.DOWNLOADED;
+			}
+
+			// Handle final piece separately, because it may have a different length
+			int finalPieceBytes = (int) (mDownloadFiles.get(0).getLength() % mPieceLength);
+			fstream.read( (mPieces.get(mPieces.size() - 1).bytes = new byte[finalPieceBytes]) );
+			mPieces.get(mPieces.size() - 1).downloadStatus = Piece.Status.DOWNLOADED;
+
+		} catch (Exception e){
+
+		} finally {
+			try {
+				if(fstream != null){
+					fstream.close();
+				}
+			} catch (Exception e) { }
+		}
+
+
 	}
 
 	/**
