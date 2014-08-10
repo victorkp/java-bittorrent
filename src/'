@@ -64,24 +64,11 @@ public class PeerMessage {
 			message.type = inStream.readByte();
 
 			switch (message.type){
-				case Type.BITFIELD:
-					// TODO implement bitfield parsing
-					break;
-
 				case Type.REQUEST:
-				case Type.CANCEL:
 					message.index = inStream.readInt();
 					message.offset = inStream.readInt();
 					message.length = inStream.readInt();
-					break;
-				case Type.PIECE:
-					message.index = inStream.readInt();
-					message.offset = inStream.readInt();
-					message.data = new byte[length - 9];
-					inStream.read(message.data);
-					break;
-				default:
-					break;
+
 			}
 
 			return message;
