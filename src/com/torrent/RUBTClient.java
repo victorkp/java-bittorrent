@@ -70,9 +70,10 @@ public class RUBTClient {
 			// Parse torrent file
 			mTorrentFile = new File(args[0]);
 			mTorrentInfo = new TorrentInfo(StreamUtil.fileAsBytes(mTorrentFile));
-
-			System.out.println("Torrent has " + mTorrentInfo.piece_hashes.length + " pieces of length " + mTorrentInfo.piece_length);
-			System.out.println("Total bytes to download: " + mTorrentInfo.file_length);
+			
+			System.out.println("\n _____________________________ ");
+			System.out.println("|----------STARTING-----------|");
+			System.out.println("|-----------------------------|\n");
 
 			FileManager.setPieceLength(mTorrentInfo.piece_length);
 
@@ -142,14 +143,27 @@ public class RUBTClient {
 			
 			*/
 
-			// Wait for a keypress to exit
-			System.out.println("Press <ENTER> to stop seeding");
+			
+			System.out.println(" _____________________________ ");
+			System.out.println("|------------INFO-------------|");
+			System.out.println("|--Press <ENTER> at any time--|");
+			System.out.println("|-----to exit this client-----|");
+			System.out.println("|-----------------------------|\n");
+			
+			// Wait for a keypress to stop everything
 			System.in.read();
 			
 			mPeerManager.stop();
-			// TrackerUtil.sendEvent(TrackerUtil.Events.STOPPED);
+			TrackerUtil.sendEvent(TrackerUtil.Events.STOPPED);
 
 			PeerUtil.closeTCP();
+			
+			if(!mFileManager.arePiecesDownloaded()) {
+				System.out.println("\n _____________________________ ");
+				System.out.println("|------------NOTE-------------|");
+				System.out.println("|--File not fully downloaded--|");
+				System.out.println("|-----------------------------|\n");
+			}
 
 		} catch (Exception e) {
 			e.printStackTrace();

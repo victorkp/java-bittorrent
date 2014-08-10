@@ -64,6 +64,8 @@ public class PeerConnection {
 
 	private byte[] mCurrentPieceBytes;
 
+	private Thread mDownloadThread;
+
 	/**
 	 * How many bytes received by this peer in the last period of the
 	 * PeerManager
@@ -109,7 +111,7 @@ public class PeerConnection {
 			mDataIn.readFully(response);
 
 			byte[] responseInfoHash = Arrays.copyOfRange(response, 28, 48);
-			
+
 			// If the hash is correct
 			if (Arrays.equals(mInfoHash.array(), responseInfoHash)) {
 				// Then setup the peer fully
@@ -140,14 +142,15 @@ public class PeerConnection {
 	}
 
 	/**
-	 * Make a handshake with the peer:
-	 * send handshake, and parse other's handshake
+	 * Make a handshake with the peer: send handshake, and parse other's
+	 * handshake
+	 * 
 	 * @return if the handshake seemed successful
 	 */
 	public boolean doHandshake() {
 		try {
 			sendHandshake();
-			
+
 			byte[] response = new byte[68];
 			mDataIn.readFully(response);
 
@@ -161,11 +164,11 @@ public class PeerConnection {
 
 		return false;
 	}
-	
+
 	/**
 	 * Send our handshake to the peer, expect no response
 	 */
-	public void sendHandshake(){
+	public void sendHandshake() {
 		try {
 			mSocket.setSoTimeout(20000);
 			mDataOut.write(PeerMessage.makeHandshake());
@@ -201,7 +204,7 @@ public class PeerConnection {
 	 */
 	public boolean indicateInterest() {
 		mInterested = true;
-		
+
 		try {
 			// Ignore the bitfield response
 			byte[] lengthPrefix = new byte[4];
@@ -226,6 +229,25 @@ public class PeerConnection {
 		return false;
 	}
 
+	public Thread startAsyncDownload() {
+		Thread t = new Thread(new Runnable() {
+			public void run() {
+				try {
+					doDownload();
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+			}
+		});
+		t.start();
+
+		return t;
+	}
+
+	public void stopAsyncDownload() {
+		mInterested = false;
+	}
+
 	public void doDownload() throws IOException {
 		mCurrentPieceBytes = new byte[mPieceLength];
 
@@ -238,7 +260,8 @@ public class PeerConnection {
 		finalPieceRemaining = finalPieceLength = mFileLength - ((mPieceHashes.length - 1) * mPieceLength);
 
 		while (currentPiece != -1 && mInterested) {
-			// We still need parts of the file and we are interested in this Peer 
+			// We still need parts of the file and we are interested in this
+			// Peer
 
 			// Keep track that this piece is being downloaded, so that other
 			// PeerConnections
@@ -254,7 +277,7 @@ public class PeerConnection {
 				finalPieceRemaining -= 16384;
 			}
 
-			System.out.println("Downloading piece " + currentPiece + "/" + (mPieceHashes.length - 1) + " from offset " + requestBeginOffset + " and length " + requestLength);
+			debug(mPeer.getPeerID() + ": Downloading piece " + currentPiece + "/" + (mPieceHashes.length - 1));
 
 			// Request a part of a piece
 			byte[] bytes = doRequest(currentPiece, requestBeginOffset, requestLength);
@@ -276,20 +299,25 @@ public class PeerConnection {
 
 						mBytesReceived += finalPieceLength;
 						mFileManager.setPieceDownloaded(currentPiece, Arrays.copyOf(mCurrentPieceBytes, finalPieceLength));
-
-						// Pick another piece that needs to be downloaded
-						currentPiece = mFileManager.getNeededPiece();
+					} else {
+						debug("Final piece Hash failed");
 					}
-				} else if (checkPieceHash(currentPiece, mPieceLength)) { // not last piece, so hash all bytes
-					// The hash is good, so tell the peer,
-					doHave(currentPiece);
+				} else {
+					if (checkPieceHash(currentPiece, mPieceLength)) {
+						// not last piece, so hash all bytes
 
-					mBytesReceived += mCurrentPieceBytes.length;
-					mFileManager.setPieceDownloaded(currentPiece, Arrays.copyOf(mCurrentPieceBytes, mCurrentPieceBytes.length));
+						// The hash is good, so tell the peer,
+						doHave(currentPiece);
 
-					// Pick another piece that needs to be downloaded
-					currentPiece = mFileManager.getNeededPiece();
+						mBytesReceived += mCurrentPieceBytes.length;
+						mFileManager.setPieceDownloaded(currentPiece, Arrays.copyOf(mCurrentPieceBytes, mCurrentPieceBytes.length));
+					} else {
+						debug("Hash failed");
+					}
 				}
+				
+				// Pick another piece that needs to be downloaded
+				currentPiece = mFileManager.getNeededPiece();
 
 				Arrays.fill(mCurrentPieceBytes, (byte) 0);
 				requestBeginOffset = 0;
@@ -407,28 +435,37 @@ public class PeerConnection {
 		}
 	}
 
-	private String getResponse(int length) throws IOException {
-		String response = "";
-		int next;
-		for (int i = 0; i < length; i++) {
-			response = ((next = mIn.read()) != -1) ? (response + (byte) next) : (response);
-		}
-
-		return response;
+	/**
+	 * @return number of bytes received from this peer
+	 */
+	public int getBytesReceived() {
+		return mBytesReceived;
 	}
 
-	private String getResponse() throws IOException {
+	/**
+	 * @return number of bytes sent to this peer
+	 */
+	public int getBytesSent() {
+		return mBytesSent;
+	}
 
-		String response = "";
-		int next;
-		while ((next = mIn.read()) != -1) {
-			response += (char) next;
-			System.out.print((char) next);
-		}
-
-		return response;
+	/**
+	 * Reset the number of bytes sent to and received from this peer
+	 */
+	public void resetBytesSentAndReceived() {
+		mBytesReceived = 0;
+		mBytesSent = 0;
 	}
 	
+	/**
+	 * Change the if statement to show debug messages
+	 */
+	private void debug(String s){
+		if("1".equals("2")){
+			System.out.println(s);
+		}
+	}
+
 	@Override
 	public String toString() {
 		return String.format("PeerConnection to %s, at %s:%s", mPeer.getPeerID(), mPeer.getIP(), mPeer.getPort());

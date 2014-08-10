@@ -169,8 +169,7 @@ public class TrackerUtil {
 					}
 					
 					if (decodedResponse.containsKey(TrackerConstants.INTERVAL)) {
-						Object interval = decodedResponse.get(TrackerConstants.INTERVAL);
-						System.out.println("Interval is " + interval.getClass());
+						mInterval = (Integer) decodedResponse.get(TrackerConstants.INTERVAL) * 1000;
 					}
 
 					return peerInfos;

@@ -17,6 +17,11 @@ public class FileManager {
 			NOT_DOWNLOADED,
 			DOWNLOADING,
 			DOWNLOADED };
+			
+		/**
+		 * The index of this piece
+		 */
+		public int index;
 
 		/**
 		 * The bytes that make up this file piece
@@ -28,6 +33,10 @@ public class FileManager {
 		 * (not downloaded, downloading or downloaded)
 		 */
 		public Status downloadStatus = Status.NOT_DOWNLOADED;
+		
+		public Piece(int index){
+			this.index = index;
+		}
 	}
 
 	/**
@@ -67,7 +76,7 @@ public class FileManager {
 		// Add the correct number of pieces to mPieces
 		mPieces = new ArrayList<Piece>(numPieces);
 		for(int i = 0; i < numPieces; i++){
-			mPieces.add(new Piece());
+			mPieces.add(new Piece(i));
 		}
 
 		mDownloadFiles = files;
@@ -75,6 +84,15 @@ public class FileManager {
 		if(mDownloadFiles.isEmpty()){
 			throw new Exception("No download files specified");
 		} else if (files.size() == 1){
+			if(mRoot.exists()){
+				// Check to see if this file does not need to be redownloaded
+				if(mRoot.length() == files.get(0).getLength()){
+					// File exists and is correct length
+					setupPiecesFromFile(mRoot);
+					return;
+				}
+			}
+			
 			// Only one file, so mRoot will be that file
 			if (!mRoot.createNewFile()) {
 				mRoot.delete();
@@ -91,22 +109,19 @@ public class FileManager {
 	 * Get the first piece that needs to be downloaded
 	 */
 	public int getNeededPiece(){
-		return getNeededPiece(0);
-	}
-
-	/**
-	 * Get the first piece that needs to be downloaded
-	 * that has index greater than start
-	 * @param start the minimum index allowed
-	 */
-	public int getNeededPiece(int start){
-		for(int i = start; i < mPieces.size(); i++){
-			if(mPieces.get(i).downloadStatus == Piece.Status.NOT_DOWNLOADED){
-				return i;
+		List<Piece> neededPieces = new ArrayList<Piece>();
+		
+		for(int i = 0; i < mPieces.size(); i++){
+			if(mPieces.get(i).downloadStatus != Piece.Status.DOWNLOADED){
+				neededPieces.add(mPieces.get(i));
 			}
 		}
-
-		return -1;
+		
+		if(neededPieces.isEmpty()){
+			return -1;
+		}
+		
+		return neededPieces.get((int)(Math.random() * neededPieces.size())).index;
 	}
 
 	/**
@@ -122,15 +137,30 @@ public class FileManager {
 	 */
 	public void setPieceDownloaded(int index, byte[] bytes){
 		Piece piece = mPieces.get(index);
+		
+		if(piece.downloadStatus == Piece.Status.DOWNLOADED){
+			return;
+		}
+		
 		piece.bytes = bytes;
 		piece.downloadStatus = Piece.Status.DOWNLOADED;
+		
+		printProgress();
 
 		if(arePiecesDownloaded()){
 			try{
-				System.out.println("Saving...");
+				System.out.println("\n _____________________________ ");
+				System.out.println("|------------NOTE-------------|");
+				System.out.println("|----Transfer has completed---|");
+				System.out.println("|----File is being written----|");
+				System.out.println("|-----------------------------|");
 				writeToDisk();
+				System.out.println("|-----Saved successfully------|");
+				System.out.println("|-----------------------------|\n");
 			} catch (Exception e){
-				e.printStackTrace();
+				System.out.println("|-----COULD NOT SAVE FILE-----|");
+				System.out.println("|-----------------------------|\n");
+				//e.printStackTrace();
 			}
 		}
 	}
@@ -147,6 +177,30 @@ public class FileManager {
 		}
 
 		return true;
+	}
+	
+	private void printProgress(){
+		List<Piece> neededPieces = new ArrayList<Piece>();
+		
+		for(int i = 0; i < mPieces.size(); i++){
+			if(mPieces.get(i).downloadStatus != Piece.Status.DOWNLOADED){
+				neededPieces.add(mPieces.get(i));
+			}
+		}
+		
+		int progress = (100 * (mPieces.size() - neededPieces.size())) / mPieces.size();
+		System.out.print(progress + "%");
+		int bars = 0;
+		while(progress > 0){
+			System.out.print("=");
+			progress -= 4;
+			bars++;
+		}
+		System.out.print(">");
+		for(int i = 25 - bars; i > 0; i--){
+			System.out.print(" ");
+		}
+		System.out.println("|");
 	}
 
 	/**
@@ -185,6 +239,14 @@ public class FileManager {
 		}
 		
 		return null;
+	}
+	
+	/**
+	 * Setup
+	 * @param f the file that is completely downloaded
+	 */
+	private void setupPiecesFromFile(File file){
+		
 	}
 
 	/**
