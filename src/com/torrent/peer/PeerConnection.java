@@ -711,7 +711,7 @@ public class PeerConnection {
 	 * Change the if statement to show debug messages
 	 */
 	private void debug(String s){
-		if("1".equals("1")){
+		if("1".equals("2")){
 			System.out.println(s);
 		}
 	}

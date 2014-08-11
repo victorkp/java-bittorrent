@@ -178,9 +178,24 @@ public class PeerManager {
 					try{
 						Thread.sleep(MONITOR_INTERVAL / 10);
 					} catch (InterruptedException e) { }
+
+
+					if(mDownloadPeers.size() >= MAX_DOWNLOAD_PEERS) {
+						// There's a different peer we can try to connect to
+						// Drop the slowest peer and pick a new one
+						PeerConnection slowest = getSlowestDownloadPeer();
+						if(slowest != null) {
+							System.out.println("Dropping " + slowest.getPeerInfo());
+							slowest.stop();
+						}
+						/*
+						slowest.stopAsyncDownload();
+						slowest.closeConnection();
+						*/
+					}
 					
 					if(mDownloadPeers.size() < MAX_DOWNLOAD_PEERS && mDownloadPeers.size() < mAvailablePeers.size()){
-						while(mDownloadPeers.size() < MAX_DOWNLOAD_PEERS){
+						for(int i = 0; i < MAX_DOWNLOAD_PEERS && mDownloadPeers.size() <= MAX_DOWNLOAD_PEERS; i++) {
 							PeerInfo peer = pickRandomUnconnectedPeer(mAvailablePeers);
 							
 							if(peer == null){
@@ -209,17 +224,8 @@ public class PeerManager {
 								*/
 							}
 						}
-					} else if(mAvailablePeers.size() >= MAX_DOWNLOAD_PEERS) {
-						// There's a different peer we can try to connect to
-						// Drop the slowest peer and pick a new one
-						PeerConnection slowest = getSlowestDownloadPeer();
-						slowest.stop();
-						/*
-						slowest.stopAsyncDownload();
-						slowest.closeConnection();
-						*/
 					}
-					
+
 					// Keep checking to make sure this thread isn't being stopped
 					for(int i = 0; i < 9; i++){
 						try{
@@ -366,14 +372,16 @@ public class PeerManager {
 		if(mAvailablePeers == null || mAvailablePeers.isEmpty()){
 			return null;
 		}
+
+		List<PeerInfo> notConnectedPeers = new ArrayList<PeerInfo>();
 		
 		for(PeerInfo info : peerList){
 			if(!isConnectedTo(info)){
-				return info;
+				notConnectedPeers.add(info);
 			}
 		}
-		
-		return null;
+
+		return (notConnectedPeers.isEmpty()) ? (null) : (notConnectedPeers.get((int) (Math.random() * notConnectedPeers.size())));
 	}
 
 }
