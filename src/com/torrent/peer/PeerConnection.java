@@ -21,6 +21,8 @@ import com.torrent.file.FileManager;
 
 public class PeerConnection {
 
+	private static final int DEFAULT_REQUEST_LENGTH = 16384;
+
 	private static String mAnnounceURL;
 	private static ByteBuffer mInfoHash;
 
@@ -264,11 +266,28 @@ public class PeerConnection {
 
 		// If we can request something
 		if(!mBeingChoked && mCurrentRequestIndex != -1) {
+			// Piece length based on whether or not this is the final piece
+			int pieceLength = (mCurrentRequestIndex == mPieceHashes.length - 1) ? 
+					(mFileLength % mPieceLength) : (mPieceLength);
 
+			if(mCurrentRequestOffset + mCurrentRequestLength > pieceLength) {
+				// Adjust requested length if needed
+				mCurrentRequestLength = pieceLength % DEFAULT_REQUEST_LENGTH;
+			} else {
+				mCurrentRequestLength = DEFAULT_REQUEST_LENGTH;
+			}
+
+			debug(String.format(mPeer + " requesting piece %d from %d to %d", 
+						mCurrentRequestIndex, mCurrentRequestOffset, 
+						mCurrentRequestOffset + mCurrentRequestLength));
+
+			sendRequest(mCurrentRequestIndex, mCurrentRequestOffset, mCurrentRequestLength);
 		}
 	}
 
 	public void sendPiece(int index, int offset, int length) {
+		debug(String.format(mPeer + " sending piece %d from %d to %d", index, offset, offset + length));
+
 		byte[] piece = mFileManager.getPieceForUpload(index);
 
 		// If we don't have this piece, send no bytes for the data
@@ -494,7 +513,7 @@ public class PeerConnection {
 	}
 
 	/**
-	 * Make a request to download data
+	 * Make a request to download data and return data received
 	 * 
 	 * @param index
 	 *            index of the piece to download
@@ -502,7 +521,7 @@ public class PeerConnection {
 	 *            the byte offset of where to start in that piece
 	 * @param length
 	 *            how many bytes to download after the offset
-	 * @return
+	 * @return bytes received from the peer
 	 */
 	public byte[] doRequest(int index, int offset, int length) {
 		try {
@@ -523,6 +542,21 @@ public class PeerConnection {
 		}
 
 		return null;
+	}
+
+	/**
+	 * Send a request to download data
+	 * @param index index of the piece to download
+	 * @param offset the byte offset of where to start in that piece
+	 * @param length how many bytes to download after the offset
+	 */
+	private void sendRequest(int index, int offset, int length){
+		try {
+			mDataOut.write(PeerMessage.makeRequest(index, offset, length));
+			mDataOut.flush();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 	}
 
 	/**
