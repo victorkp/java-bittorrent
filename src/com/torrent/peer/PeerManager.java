@@ -105,6 +105,9 @@ public class PeerManager {
 		mSocketListening = true;
 		(mSocketThread = new Thread(new Runnable() {
 			public void run() {
+				try {
+					mSocket.setSoTimeout(0);
+				} catch (Exception e) { }
 				while (mSocketListening) {
 					try {
 						Socket peerSocket = mSocket.accept();
@@ -119,7 +122,7 @@ public class PeerManager {
 							
 							System.out.println("Established a connection with " + peerConnection);
 						}
-					} catch (Exception e) {	}
+					} catch (Exception e) { e.printStackTrace(); }
 				}
 			}
 		})).start();
@@ -132,8 +135,8 @@ public class PeerManager {
 				// While the tracker 
 				while(mTrackerPolling){
 					// Get the peers and filter by IP address
-					mAvailablePeers = (TrackerUtil.getPeers());
-					//mAvailablePeers = filterPeers(TrackerUtil.getPeers());
+					//mAvailablePeers = (TrackerUtil.getPeers());
+					mAvailablePeers = filterPeers(TrackerUtil.getPeers());
 					
 					for(PeerInfo peer : mAvailablePeers){
 						System.out.println("Peer available: " + peer);
@@ -176,7 +179,7 @@ public class PeerManager {
 						Thread.sleep(MONITOR_INTERVAL / 10);
 					} catch (InterruptedException e) { }
 					
-					if(mDownloadPeers.size() < MAX_DOWNLOAD_PEERS){
+					if(mDownloadPeers.size() < MAX_DOWNLOAD_PEERS && mDownloadPeers.size() < mAvailablePeers.size()){
 						while(mDownloadPeers.size() < MAX_DOWNLOAD_PEERS){
 							PeerInfo peer = pickRandomUnconnectedPeer(mAvailablePeers);
 							
@@ -184,12 +187,15 @@ public class PeerManager {
 								return;
 							}
 							
-							System.out.println("Connecting to " + peer + " for download");
+							System.out.println("Connecting to " + peer);
 							
 							// Connect to this peer
 							PeerConnection peerConnection = PeerUtil.handshakeWithPeer(peer);
 							
 							if (peerConnection != null) {
+								peerConnection.start();
+								mDownloadPeers.add(peerConnection);
+								/*
 								// Try to get unchoked by the other peer
 								if (peerConnection.indicateInterest()) {
 									// If we get unchoked, start downloading
@@ -200,14 +206,18 @@ public class PeerManager {
 									peerConnection.stopAsyncDownload();
 									peerConnection.closeConnection();
 								}
+								*/
 							}
 						}
 					} else if(mAvailablePeers.size() >= MAX_DOWNLOAD_PEERS) {
 						// There's a different peer we can try to connect to
 						// Drop the slowest peer and pick a new one
 						PeerConnection slowest = getSlowestDownloadPeer();
+						slowest.stop();
+						/*
 						slowest.stopAsyncDownload();
 						slowest.closeConnection();
+						*/
 					}
 					
 					// Keep checking to make sure this thread isn't being stopped
@@ -233,13 +243,15 @@ public class PeerManager {
 		mMonitorPeers = false;
 		
 		for(PeerConnection conn : mDownloadPeers){
-			conn.stopAsyncDownload();
-			conn.closeConnection();
+			conn.stop();
+			//conn.stopAsyncDownload();
+			//conn.closeConnection();
 		}
 		
 		for(PeerConnection conn : mUploadPeers){
-			conn.stopAsyncDownload();
-			conn.closeConnection();
+			conn.stop();
+			//conn.stopAsyncDownload();
+			//conn.closeConnection();
 		}
 		
 		System.out.println("\n _____________________________ ");

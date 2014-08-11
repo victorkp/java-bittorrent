@@ -38,7 +38,6 @@ public class PeerMessage {
 		public byte[] data;
 	}
 
-	
 	private static ByteBuffer mInfoHash;
 	private static String mPeerID;
 	
@@ -66,6 +65,11 @@ public class PeerMessage {
 			switch (message.type){
 				case Type.BITFIELD:
 					// TODO implement bitfield parsing
+					inStream.readFully(new byte[length - 1]);
+					break;
+
+				case Type.HAVE:
+					message.index = inStream.readInt();
 					break;
 
 				case Type.REQUEST:
@@ -78,11 +82,13 @@ public class PeerMessage {
 					message.index = inStream.readInt();
 					message.offset = inStream.readInt();
 					message.data = new byte[length - 9];
-					inStream.read(message.data);
+					inStream.readFully(message.data);
 					break;
 				default:
 					break;
 			}
+
+			inStream.readFully(new byte[inStream.available()]);
 
 			return message;
 		} catch (IOException e) { 
