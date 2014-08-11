@@ -100,49 +100,8 @@ public class RUBTClient {
 			// Setup the PeerManager that will handle which peers to use
 			mPeerManager = new PeerManager(mTcpSocket);
 			
+			// Start the PeerManager - which will handle all download related tasks from here
 			mPeerManager.start();
-			
-			/*
-			// Get the peers from the tracker
-			List<PeerInfo> peerList = TrackerUtil.getPeers();
-			if (peerList == null) {
-				System.out.println("There was a problem contacting the tracker");
-				return;
-			}
-
-			if(mTorrentFile.exists() && mTorrentFile.length() == mTorrentInfo.file_length) {
-				// Already done downloading the file
-				System.out.println("File(s) already downloaded");
-			} else {
-
-				PeerConnection peerConnection = null;
-
-				for (PeerInfo peer : peerList) {
-					// Iterate through peers, only use the one
-					// that has an ID starting with RU1103
-					if (peer.getPeerID().contains("RU1103")) {
-						peerConnection = PeerUtil.handshakeWithPeer(peer);
-						break;
-					}
-				}
-
-				// If we have made a handshake with a peer...
-				if (peerConnection != null) {
-					// Try to get unchocked by the other peer
-					if (peerConnection.indicateInterest()) {
-						// If we get unchocked, start downloading
-						peerConnection.doDownload();
-					}
-					peerConnection.closeConnection();
-				}
-
-				TrackerUtil.sendEvent(TrackerUtil.Events.COMPLETED);
-
-				System.out.println("---DONE--DOWNLOADING---");
-			}
-			
-			*/
-
 			
 			System.out.println(" _____________________________ ");
 			System.out.println("|------------INFO-------------|");
@@ -153,11 +112,16 @@ public class RUBTClient {
 			// Wait for a keypress to stop everything
 			System.in.read();
 			
+			// Stop the PeerManager's threads
 			mPeerManager.stop();
+
+			// Tell the tracker we're stopped
 			TrackerUtil.sendEvent(TrackerUtil.Events.STOPPED);
 
+			// Close socket that was open for incoming peers
 			PeerUtil.closeTCP();
 			
+			// Print a warning if file not fully downloaded
 			if(!mFileManager.arePiecesDownloaded()) {
 				System.out.println("\n _____________________________ ");
 				System.out.println("|------------NOTE-------------|");

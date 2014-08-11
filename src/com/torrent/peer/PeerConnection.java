@@ -23,6 +23,11 @@ public class PeerConnection {
 
 	private static final int DEFAULT_REQUEST_LENGTH = 16384;
 
+	/**
+	 * Whether or not to display verbose debugging messages
+	 */
+	private static boolean DEBUG = false;
+
 	private static String mAnnounceURL;
 	private static ByteBuffer mInfoHash;
 
@@ -70,17 +75,16 @@ public class PeerConnection {
 	private int mCurrentRequestLength;
 
 	/**
-	 * The thread that sends requests
-	 * for pieces
+	 * The thread that sends requests for pieces
 	 */
 	private Thread mDownloadThread;
 
 	/**
-	 * Thread that mointors incoming
-	 * messages on mSocket and responds appropriately
+	 * Thread that mointors incoming messages on mSocket and responds
+	 * appropriately
 	 */
 	private Thread mSocketThread;
-	
+
 	/**
 	 * If this peer should have an active connection
 	 */
@@ -153,73 +157,74 @@ public class PeerConnection {
 
 	public void start() {
 		mActive = true;
-		(mSocketThread = new Thread(new Runnable(){
+		(mSocketThread = new Thread(new Runnable() {
 			public void run() {
 				sendInterested();
-				while(!mSocket.isClosed() && mActive) {
+				while (!mSocket.isClosed() && mActive) {
 					try {
 						// Wait for and parse a message
 						PeerMessage.Message message = PeerMessage.readMessage(mDataIn);
 
 						// Determine what to do
-						switch(message.type){
-							case PeerMessage.Type.BITFIELD:
-								// TODO implement bitfield processing
-								debug(mPeer + " sent bitfield");
-								break;
-							case PeerMessage.Type.CANCEL:
-								// Try a different piece if we get a cancel
-								debug(mPeer + String.format(" received cancel %d(%d-%d)", 
-										message.index, message.offset, message.length));
-								break;
-							case PeerMessage.Type.CHOKE:
-								// Try to get unchoked again
-								debug(mPeer + " is choking");
-								mBeingChoked = true;
-								sendInterested();
-								break;
-							case PeerMessage.Type.HAVE:
-								// Ignore HAVEs
-								debug(mPeer + " HAVE piece " + message.index);
-								break;
-							case PeerMessage.Type.INTERESTED:
-								// TODO Unchoke with some probability
-								debug(mPeer + " is interested");
+						switch (message.type) {
+						case PeerMessage.Type.BITFIELD:
+							// Send bitfield to the FileManager 
+							debug(mPeer + " sent bitfield");
+							mFileManager.addBitfield(message.data);
+							break;
+						case PeerMessage.Type.CANCEL:
+							// Try a different piece if we get a cancel
+							debug(mPeer + String.format(" received cancel %d(%d-%d)", message.index, message.offset, message.length));
+							break;
+						case PeerMessage.Type.CHOKE:
+							// Try to get unchoked again
+							debug(mPeer + " is choking");
+							mBeingChoked = true;
+							sendInterested();
+							break;
+						case PeerMessage.Type.HAVE:
+							// Ignore HAVEs
+							debug(mPeer + " HAVE piece " + message.index);
+							break;
+						case PeerMessage.Type.INTERESTED:
+							// Unchoke with some probability
+							debug(mPeer + " is interested");
+							if(Math.random() > 0.5){
 								mChoking = false;
 								mOtherInterested = true;
 								sendNotChoking();
-								break;
-							case PeerMessage.Type.NOT_INTERESTED:
-								// The other peer is no longer interested
-								debug(mPeer + " is not interested");
-								mOtherInterested = false;
-								break;
-							case PeerMessage.Type.PIECE:
-								// Handle pieces
-								debug(mPeer + String.format(" sent us %d(%d-%d)", 
-										message.index, message.offset, message.data.length));
-								debug("handling");
-								handleBlock(message.index, message.offset, message.data);
-								debug("requesting");
-								requestPiece();		
-								break;
-							case PeerMessage.Type.REQUEST:
-								// Send if we're not choking
-								debug(mPeer + String.format(" requested %d(%d-%d)", 
-										message.index, message.offset, message.length));
-							if(!mChoking){
-									sendPiece(message.index, message.offset, message.length);
-								}
-								break;
-							case PeerMessage.Type.UNCHOKE:
-								// We were unchoked, so begin requesting pieces
-								debug(mPeer + " is not choking");
-								mBeingChoked = false;
-								requestPiece();
-								break;
+							}
+							break;
+						case PeerMessage.Type.NOT_INTERESTED:
+							// The other peer is no longer interested
+							debug(mPeer + " is not interested");
+							mOtherInterested = false;
+							break;
+						case PeerMessage.Type.PIECE:
+							// Handle pieces
+							debug(mPeer + String.format(" sent us %d(%d-%d)", message.index, message.offset, message.data.length));
+							debug("handling");
+							handleBlock(message.index, message.offset, message.data);
+							debug("requesting");
+							requestPiece();
+							break;
+						case PeerMessage.Type.REQUEST:
+							// Send if we're not choking
+							debug(mPeer + String.format(" requested %d(%d-%d)", message.index, message.offset, message.length));
+							if (!mChoking) {
+								sendPiece(message.index, message.offset, message.length);
+							}
+							break;
+						case PeerMessage.Type.UNCHOKE:
+							// We were unchoked, so begin requesting pieces
+							debug(mPeer + " is not choking");
+							mBeingChoked = false;
+							requestPiece();
+							break;
 						}
 
-					} catch (Exception e) { }
+					} catch (Exception e) {
+					}
 				}
 			}
 		})).start();
@@ -231,10 +236,14 @@ public class PeerConnection {
 
 		mActive = false;
 
+		// Send a choke
+		sendChoking();
+
 		// Try to peacefully stop
 		try {
 			mSocketThread.join(8000);
-		} catch (Exception e) { }
+		} catch (Exception e) {
+		}
 
 		// Close socket to forcefully stop
 		closeConnection();
@@ -253,8 +262,8 @@ public class PeerConnection {
 	/**
 	 * Process the block that was received by the other peer
 	 */
-	private void handleBlock(int index, int offset, byte[] data){
-		if(mCurrentPieceBytes == null) {
+	private void handleBlock(int index, int offset, byte[] data) {
+		if (mCurrentPieceBytes == null) {
 			mCurrentPieceBytes = new byte[mPieceLength];
 		}
 
@@ -264,11 +273,11 @@ public class PeerConnection {
 		// Need to take into account if this is the last piece
 		int pieceLength = (mCurrentRequestIndex == mPieceHashes.length - 1) ? (mFileLength % mPieceLength) : (mPieceLength);
 
-		if(mCurrentRequestOffset >= pieceLength) {
+		if (mCurrentRequestOffset >= pieceLength) {
 			// Should be done downloading this piece; check hash
 			debug("Checking hash on piece " + mCurrentRequestIndex);
 
-			if(checkPieceHash(mCurrentRequestIndex, pieceLength)) {
+			if (checkPieceHash(mCurrentRequestIndex, pieceLength)) {
 				// Hash is good, send to FileManager
 				mFileManager.setPieceDownloaded(mCurrentRequestIndex, Arrays.copyOf(mCurrentPieceBytes, pieceLength));
 
@@ -276,7 +285,7 @@ public class PeerConnection {
 				mBytesReceived += pieceLength;
 
 				// Send a HAVE message
-				doHave(mCurrentRequestIndex);
+				sendHave(mCurrentRequestIndex);
 			} else {
 				debug("Hash failed: " + mPeer);
 			}
@@ -294,33 +303,30 @@ public class PeerConnection {
 	 * Request a block of a piece that is not already downloaded
 	 */
 	private void requestPiece() {
-		if(mBeingChoked) {
+		if (mBeingChoked) {
 			// Need to get unchoked first
 			sendInterested();
 			debug("Can't request, being choked: " + mPeer);
 		} else {
 			// If this is the first piece requested, find what is needed
 			// to be downloaded
-			if(mCurrentRequestIndex == -1){
+			if (mCurrentRequestIndex == -1) {
 				mCurrentRequestIndex = mFileManager.getNeededPiece();
 			}
 
 			// If we can request something
-			if(mCurrentRequestIndex != -1) {
+			if (mCurrentRequestIndex != -1) {
 				// Piece length based on whether or not this is the final piece
-				int pieceLength = (mCurrentRequestIndex == mPieceHashes.length - 1) ? 
-						(mFileLength % mPieceLength) : (mPieceLength);
+				int pieceLength = (mCurrentRequestIndex == mPieceHashes.length - 1) ? (mFileLength % mPieceLength) : (mPieceLength);
 
-				if(mCurrentRequestOffset + mCurrentRequestLength > pieceLength) {
+				if (mCurrentRequestOffset + mCurrentRequestLength > pieceLength) {
 					// Adjust requested length if needed
 					mCurrentRequestLength = pieceLength % DEFAULT_REQUEST_LENGTH;
 				} else {
 					mCurrentRequestLength = DEFAULT_REQUEST_LENGTH;
 				}
 
-				debug(String.format(" requesting piece %d from %d to %d: " + mPeer, 
-							mCurrentRequestIndex, mCurrentRequestOffset, 
-							mCurrentRequestOffset + mCurrentRequestLength));
+				debug(String.format(" requesting piece %d from %d to %d: " + mPeer, mCurrentRequestIndex, mCurrentRequestOffset, mCurrentRequestOffset + mCurrentRequestLength));
 
 				sendRequest(mCurrentRequestIndex, mCurrentRequestOffset, mCurrentRequestLength);
 			} else {
@@ -329,7 +335,7 @@ public class PeerConnection {
 		}
 	}
 
-	public void sendPiece(int index, int offset, int length) {
+	private void sendPiece(int index, int offset, int length) {
 		debug(String.format(" sending piece %d from %d to %d: " + mPeer, index, offset, offset + length));
 
 		byte[] piece = mFileManager.getPieceForUpload(index);
@@ -342,7 +348,8 @@ public class PeerConnection {
 		try {
 			mDataOut.write(message);
 			mDataOut.flush();
-		} catch (Exception e) { }
+		} catch (Exception e) {
+		}
 	}
 
 	/**
@@ -373,6 +380,7 @@ public class PeerConnection {
 	 * Send our handshake to the peer, expect no response
 	 */
 	public void sendHandshake() {
+		debug(" sending handshake: " + mPeer);
 		try {
 			mSocket.setSoTimeout(20000);
 			mDataOut.write(PeerMessage.makeHandshake());
@@ -389,7 +397,7 @@ public class PeerConnection {
 	 *            the index of the piece
 	 * @return true if successful
 	 */
-	public boolean doHave(int index) {
+	public boolean sendHave(int index) {
 		try {
 			mSocket.setSoTimeout(20000);
 			mDataOut.write(PeerMessage.makeHave(index));
@@ -400,136 +408,6 @@ public class PeerConnection {
 		}
 
 		return false;
-	}
-
-	/**
-	 * Indicate interest to the peer, returns true if we may begin downloading
-	 * (if the other peer is not choking us)
-	 */
-	public boolean indicateInterest() {
-		mInterested = true;
-
-		try {
-			// Ignore the bitfield response
-			byte[] lengthPrefix = new byte[4];
-			mDataIn.readFully(lengthPrefix);
-			ByteBuffer lengthBuffer = ByteBuffer.wrap(lengthPrefix);
-			int length = lengthBuffer.getInt();
-
-			byte[] response = new byte[length];
-			mDataIn.readFully(response);
-
-			if (!doInterested()) {
-				System.out.println("Error: peer is still choking us.");
-				return false;
-			}
-
-			return true;
-
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-
-		return false;
-	}
-
-	public Thread startAsyncDownload() {
-		mDownloadThread  = new Thread(new Runnable() {
-			public void run() {
-				try {
-					doDownload();
-				} catch (Exception e) {
-					e.printStackTrace();
-				}
-			}
-		});
-		mDownloadThread.start();
-
-		return mDownloadThread;
-	}
-
-	public void stopAsyncDownload() {
-		mInterested = false;
-
-		try {
-			mDownloadThread.join(5000);
-		} catch (InterruptedException e) { }
-	}
-
-	public void doDownload() throws IOException {
-		mCurrentPieceBytes = new byte[mPieceLength];
-
-		int finalPieceLength, finalPieceRemaining;
-		int currentPiece = mFileManager.getNeededPiece();
-		int requestBeginOffset = 0;
-		int requestLength = 16384;
-
-		// How long the final piece in the file is
-		finalPieceRemaining = finalPieceLength = mFileLength - ((mPieceHashes.length - 1) * mPieceLength);
-
-		while (currentPiece != -1 && mInterested) {
-			// We still need parts of the file and we are interested in this
-			// Peer
-
-			// Keep track that this piece is being downloaded, so that other
-			// PeerConnections
-			// don't also try to download this piece
-			mFileManager.setPieceDownloading(currentPiece, true);
-
-			if (currentPiece == mPieceHashes.length - 1) {
-				// If this is the last piece, we have to be careful about not
-				// requesting
-				// data past the end of the file
-
-				requestLength = Math.min(finalPieceRemaining, 16384);
-				finalPieceRemaining -= 16384;
-			}
-
-			debug(mPeer.getPeerID() + ": Downloading piece " + currentPiece + "/" + (mPieceHashes.length - 1));
-
-			// Request a part of a piece
-			byte[] bytes = doRequest(currentPiece, requestBeginOffset, requestLength);
-			System.arraycopy(bytes, 0, mCurrentPieceBytes, requestBeginOffset, requestLength);
-
-			requestBeginOffset += requestLength;
-
-			// If we have finished downloading this piece...
-			if (requestBeginOffset == mPieceLength || finalPieceRemaining <= 0) {
-
-				// If this is the final piece, only hash up to the final piece
-				// length
-				if (currentPiece == mPieceHashes.length - 1) {
-					if (checkPieceHash(currentPiece, finalPieceLength)) {
-						// The hash is good, so tell the peer, write the data,
-						// and finish
-						doHave(currentPiece);
-
-						mBytesReceived += finalPieceLength;
-						mFileManager.setPieceDownloaded(currentPiece, Arrays.copyOf(mCurrentPieceBytes, finalPieceLength));
-					} else {
-						debug("Final piece Hash failed");
-					}
-				} else {
-					if (checkPieceHash(currentPiece, mPieceLength)) {
-						// not last piece, so hash all bytes
-
-						// The hash is good, so tell the peer,
-						doHave(currentPiece);
-
-						mBytesReceived += mCurrentPieceBytes.length;
-						mFileManager.setPieceDownloaded(currentPiece, Arrays.copyOf(mCurrentPieceBytes, mCurrentPieceBytes.length));
-					} else {
-						debug("Hash failed");
-					}
-				}
-				
-				// Pick another piece that needs to be downloaded
-				currentPiece = mFileManager.getNeededPiece();
-
-				Arrays.fill(mCurrentPieceBytes, (byte) 0);
-				requestBeginOffset = 0;
-			}
-		}
 	}
 
 	/**
@@ -557,7 +435,7 @@ public class PeerConnection {
 	}
 
 	/**
-	 * Make a request to download data and return data received
+	 * Send a request to download data
 	 * 
 	 * @param index
 	 *            index of the piece to download
@@ -565,66 +443,14 @@ public class PeerConnection {
 	 *            the byte offset of where to start in that piece
 	 * @param length
 	 *            how many bytes to download after the offset
-	 * @return bytes received from the peer
 	 */
-	public byte[] doRequest(int index, int offset, int length) {
-		try {
-			mDataOut.write(PeerMessage.makeRequest(index, offset, length));
-			mDataOut.flush();
-
-			// Ignore length prefix, piece index, and offset (we already know
-			// all this)
-			byte[] buffer = new byte[13];
-			mDataIn.readFully(buffer);
-
-			byte[] data = new byte[length];
-			mDataIn.readFully(data);
-
-			return data;
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-
-		return null;
-	}
-
-	/**
-	 * Send a request to download data
-	 * @param index index of the piece to download
-	 * @param offset the byte offset of where to start in that piece
-	 * @param length how many bytes to download after the offset
-	 */
-	private void sendRequest(int index, int offset, int length){
+	private void sendRequest(int index, int offset, int length) {
 		try {
 			mDataOut.write(PeerMessage.makeRequest(index, offset, length));
 			mDataOut.flush();
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
-	}
-
-	/**
-	 * Sends an "interested" message
-	 * 
-	 * @return if the other peer has unchoked
-	 */
-	public boolean doInterested() {
-		try {
-			// Ignore 5
-			mSocket.setSoTimeout(20000);
-			mDataOut.write(PeerMessage.makeInterested());
-			mDataOut.flush();
-
-			byte[] response = new byte[5];
-			mDataIn.readFully(response);
-
-			byte peerInterested = response[4];
-			return peerInterested == 1;
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-
-		return false;
 	}
 
 	/**
@@ -644,42 +470,43 @@ public class PeerConnection {
 		}
 	}
 
-	public void doKeepAlive() {
+	/**
+	 * Send a blank, keepalive message
+	 */
+	public void sendKeepAlive() {
 		try {
 			mOut.write(PeerMessage.makeKeepAlive());
 			mOut.flush();
-
-			String response = "";
-			int next;
-			while ((next = mIn.read()) != -1) {
-				response += (char) next;
-			}
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
 	}
 
+	/**
+	 * Send a choking message
+	 */
+	public void sendChoking() {
+		debug(" sending choking: " + mPeer);
+
+		try {
+			mOut.write(PeerMessage.makeChoking());
+			mOut.flush();
+		} catch (Exception e) {
+			if (!e.getMessage().contains("Socket closed")) {
+				e.printStackTrace();
+			}
+		}
+	}
+
+	/**
+	 * Send a not choking message
+	 */
 	public void sendNotChoking() {
 		debug(" sending not choking: " + mPeer);
 
 		try {
 			mOut.write(PeerMessage.makeNotChoking());
 			mOut.flush();
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-	}
-
-	public void doNotChoking() {
-		try {
-			mOut.write(PeerMessage.makeNotChoking());
-			mOut.flush();
-
-			String response = "";
-			int next;
-			while ((next = mIn.read()) != -1) {
-				response += (char) next;
-			}
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -706,12 +533,12 @@ public class PeerConnection {
 		mBytesReceived = 0;
 		mBytesSent = 0;
 	}
-	
+
 	/**
 	 * Change the if statement to show debug messages
 	 */
-	private void debug(String s){
-		if("1".equals("2")){
+	private void debug(String s) {
+		if (DEBUG) {
 			System.out.println(s);
 		}
 	}

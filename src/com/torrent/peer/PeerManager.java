@@ -90,12 +90,7 @@ public class PeerManager {
 	
 	public PeerManager(ServerSocket socket) {
 		mSocket = socket;
-		
-		// Only let listening to the socket block for 10 seconds,
-		try {
-			mSocket.setSoTimeout(3000);
-		} catch (SocketException e) { }
-
+	
 		mDownloadPeers = new ArrayList<PeerConnection>(3);
 		mUploadPeers = new ArrayList<PeerConnection>(3);
 	}
@@ -106,10 +101,12 @@ public class PeerManager {
 		(mSocketThread = new Thread(new Runnable() {
 			public void run() {
 				try {
+					// Set socket to never timeout
 					mSocket.setSoTimeout(0);
 				} catch (Exception e) { }
 				while (mSocketListening) {
 					try {
+						System.out.println("Waiting for incoming connection");
 						Socket peerSocket = mSocket.accept();
 						
 						System.out.println("Accepting new peer");
@@ -119,10 +116,25 @@ public class PeerManager {
 						if(peerConnection.getPeerInfo() != null){
 							// The handshake received was good, so send our handshake
 							peerConnection.sendHandshake();
-							
-							System.out.println("Established a connection with " + peerConnection);
+							System.out.println("Accepted a connection with " + peerConnection);
+
+							// Drop a leeching peer if needed
+							if(mUploadPeers.size() >= MAX_UPLOAD_PEERS){
+								PeerConnection slowest = getSlowestUploadPeer();
+								if(slowest != null) {
+									System.out.println("Dropping leech " + slowest);
+									slowest.stop();
+								}
+							}
+
+							peerConnection.start();
+							mUploadPeers.add(peerConnection);
 						}
-					} catch (Exception e) { e.printStackTrace(); }
+					} catch (Exception e) { 
+						if(!e.getMessage().contains("Socket closed")){
+							e.printStackTrace(); 
+						}
+					}
 				}
 			}
 		})).start();
@@ -135,24 +147,23 @@ public class PeerManager {
 				// While the tracker 
 				while(mTrackerPolling){
 					// Get the peers and filter by IP address
-					//mAvailablePeers = (TrackerUtil.getPeers());
 					mAvailablePeers = filterPeers(TrackerUtil.getPeers());
 					
+					System.out.println("Available peers:");
 					for(PeerInfo peer : mAvailablePeers){
-						System.out.println("Peer available: " + peer);
+						System.out.println("     " + peer);
 					}
+					System.out.println();
 					
 					// Check to make sure the tracker could be reached
 					if(mAvailablePeers == null){
 						// No way to contact tracker, so stop everything
 						System.out.println("Error: cannot reach tracker");
-						//PeerManager.this.stop();
 						break;
 					}
 					
 					if(mAvailablePeers.isEmpty()){
-						System.out.println("Error: no peers available, cannot download");
-						//PeerManager.this.stop();
+						System.out.println("No peers available");
 						break;
 					}
 					
@@ -187,11 +198,8 @@ public class PeerManager {
 						if(slowest != null) {
 							System.out.println("Dropping " + slowest.getPeerInfo());
 							slowest.stop();
+							mDownloadPeers.remove(slowest);
 						}
-						/*
-						slowest.stopAsyncDownload();
-						slowest.closeConnection();
-						*/
 					}
 					
 					if(mDownloadPeers.size() < MAX_DOWNLOAD_PEERS && mDownloadPeers.size() < mAvailablePeers.size()){
@@ -210,18 +218,6 @@ public class PeerManager {
 							if (peerConnection != null) {
 								peerConnection.start();
 								mDownloadPeers.add(peerConnection);
-								/*
-								// Try to get unchoked by the other peer
-								if (peerConnection.indicateInterest()) {
-									// If we get unchoked, start downloading
-									peerConnection.startAsyncDownload();
-									mDownloadPeers.add(peerConnection);
-								} else {
-									// Still choked, so quit
-									peerConnection.stopAsyncDownload();
-									peerConnection.closeConnection();
-								}
-								*/
 							}
 						}
 					}
@@ -247,45 +243,49 @@ public class PeerManager {
 		mSocketListening = false;
 		mTrackerPolling = false;
 		mMonitorPeers = false;
-		
-		for(PeerConnection conn : mDownloadPeers){
-			conn.stop();
-			//conn.stopAsyncDownload();
-			//conn.closeConnection();
-		}
-		
-		for(PeerConnection conn : mUploadPeers){
-			conn.stop();
-			//conn.stopAsyncDownload();
-			//conn.closeConnection();
-		}
-		
+
 		System.out.println("\n _____________________________ ");
 		System.out.println("|--------SHUTTING-DOWN--------|");
 		System.out.println("|-----------------------------|");
 		
+		
 		try {
 			// Wait at most 10 seconds for each thread to stop
+			System.out.println("|-----Closing TCP socket------|");
+			System.out.println("|-----------------------------|");
 			mSocketThread.join(10000);
-			System.out.println("|---Stopped accepting peers---|");
+			
+			System.out.println("|-----Disconnecting peers-----|");
 			System.out.println("|-----------------------------|");
 			
+			for(PeerConnection peer : mDownloadPeers){
+				peer.stop();
+			}
+			
+			for(PeerConnection peer : mUploadPeers){
+				peer.stop();
+			}
+			
+			System.out.println("|--Stopping tracker requests--|");
+			System.out.println("|-----------------------------|");
 			mTrackerThread.join(10000);
-			System.out.println("|---Stopped tracker requests--|");
-			System.out.println("|-----------------------------|");
 			
-			mMonitorThread.join(10000);
-			System.out.println("|---End performance monitor---|");
+			System.out.println("|-Ending performance monitor--|");
 			System.out.println("|-----------------------------|");
+			mMonitorThread.join(10000);
 			
 		} catch (InterruptedException e){
 			e.printStackTrace();
 		}
 		
 		// Tell the tracker that we're stopped
+		System.out.println("|--Notifying tracker of STOP--|");
+		System.out.println("|-----------------------------|");
 		TrackerUtil.sendEvent(TrackerUtil.Events.STOPPED);
-		System.out.println("|---Notified tracker of STOP--|");
+		
+		System.out.println("|------------DONE-------------|");
 		System.out.println("|-----------------------------|\n");
+		
 	}
 	
 	/**
@@ -301,7 +301,7 @@ public class PeerManager {
 		List<PeerInfo> goodPeers = new ArrayList<PeerInfo>();
 		
 		for(PeerInfo peer : peerList) {
-			if(peer.getIP().equals("128.6.5.130") || peer.getIP().equals("128.6.5.131") || peer.getPeerID().contains("RU1103")){
+			if(peer.getIP().contains("128.6.5.130") || peer.getIP().contains("128:6:5:130") || peer.getIP().contains("128.6.5.131") || peer.getIP().contains("128:6:5:131") || peer.getPeerID().contains("RU1103")){
 				goodPeers.add(peer);
 			}
 		}

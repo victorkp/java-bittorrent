@@ -6,6 +6,8 @@ import java.io.FileOutputStream;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.torrent.tracker.TrackerUtil;
+
 public class FileManager {
 
 	/** How long pieces are, as told in torrent file,
@@ -34,6 +36,11 @@ public class FileManager {
 		 * (not downloaded, downloading or downloaded)
 		 */
 		public Status downloadStatus = Status.NOT_DOWNLOADED;
+
+		/**
+		 * How many peers have this piece
+		 */
+		public int availability = 0;
 		
 		public Piece(int index){
 			this.index = index;
@@ -169,12 +176,18 @@ public class FileManager {
 				System.out.println("|-----------------------------|");
 				writeToDisk();
 				System.out.println("|-----Saved successfully------|");
-				System.out.println("|-----------------------------|\n");
+				System.out.println("|-----------------------------|");
 			} catch (Exception e){
 				System.out.println("|-----COULD NOT SAVE FILE-----|");
-				System.out.println("|-----------------------------|\n");
+				System.out.println("|-----------------------------|");
 				//e.printStackTrace();
 			}
+
+			System.out.println("|-Notifying tracker completed-|");
+			System.out.println("|-----------------------------|");
+			TrackerUtil.sendEvent(TrackerUtil.Events.COMPLETED);
+			System.out.println("|------Tracker notified-------|");
+			System.out.println("|-----------------------------|");
 		}
 	}
 
@@ -254,6 +267,21 @@ public class FileManager {
 		
 		return null;
 	}
+
+	/**
+	 * Increment the availabilities of pieces based
+	 * on a bitfield received from a peer
+	 */
+	public void addBitfield(byte[] data){
+		for(int i = 0; i < mPieces.size(); i++) {
+			int currentByte = i / 8;
+			int currentBit = i % 8;
+
+			int available = (data[currentByte] >> currentBit) & 1;
+
+			mPieces.get(i).availability += available;
+		}
+	}
 	
 	/**
 	 * Setup the pieces from the already downloaded file
@@ -287,7 +315,8 @@ public class FileManager {
 			} catch (Exception e) { }
 		}
 
-
+		// Tell the tracker that the file is completed
+		TrackerUtil.sendEvent(TrackerUtil.Events.COMPLETED);
 	}
 
 	/**
