@@ -47,7 +47,7 @@ public class PeerMessage {
 		mPeerID = peerID;
 	}
 
-	public static Message parseMessage(DataInputStream inStream){
+	public static Message readMessage(DataInputStream inStream){
 		Message message = new Message();
 
 		try {
