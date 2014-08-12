@@ -250,11 +250,6 @@ public class PeerManager {
 		
 		
 		try {
-			// Wait at most 10 seconds for each thread to stop
-			System.out.println("|-----Closing TCP socket------|");
-			System.out.println("|-----------------------------|");
-			mSocketThread.join(10000);
-			
 			System.out.println("|-----Disconnecting peers-----|");
 			System.out.println("|-----------------------------|");
 			
@@ -265,6 +260,10 @@ public class PeerManager {
 			for(PeerConnection peer : mUploadPeers){
 				peer.stop();
 			}
+
+			System.out.println("|-----Closing TCP socket------|");
+			System.out.println("|-----------------------------|");
+			mSocketThread.join(3000);
 			
 			System.out.println("|--Stopping tracker requests--|");
 			System.out.println("|-----------------------------|");
