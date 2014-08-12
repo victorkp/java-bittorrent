@@ -90,7 +90,7 @@ public class RUBTClient {
 			// Open a TCP socket to listen on
 			mTcpSocket = PeerUtil.openTCP();
 			mTcpPort = mTcpSocket.getLocalPort();
-			
+
 			// Setup links among all the components that need to communicate
 			TrackerUtil.setParams(mTorrentInfo.announce_url.toString(), mTorrentInfo.info_hash, mTorrentInfo.file_length, mPeerID, mTcpPort, mFileManager);
 			PeerConnection.setParams(mTorrentInfo.announce_url.toString(), mTorrentInfo.info_hash, mTorrentInfo.file_length, mTorrentInfo.piece_hashes, mTorrentInfo.piece_length, mPeerID, mTcpPort);
@@ -102,6 +102,9 @@ public class RUBTClient {
 			
 			// Start the PeerManager - which will handle all download related tasks from here
 			mPeerManager.start();
+			
+			// If the file was already downloaded, then send the Tracker a COMPLETED
+			TrackerUtil.sendEvent(TrackerUtil.Events.COMPLETED);
 			
 			System.out.println(" _____________________________ ");
 			System.out.println("|------------INFO-------------|");

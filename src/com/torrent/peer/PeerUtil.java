@@ -61,10 +61,11 @@ public class PeerUtil {
 	 * @return the port number of the socket, -1 if failed
 	 */
 	public static ServerSocket openTCP() {
-		for (int port = PORT_MIN; port < PORT_MAX; port++) {
+		for (int port = PORT_MIN; port <= PORT_MAX; port++) {
 			try {
 				return (mSocket = new ServerSocket(port));
 			} catch (Exception e) {
+				e.printStackTrace();
 			}
 		}
 		return null;

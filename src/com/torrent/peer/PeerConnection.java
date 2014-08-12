@@ -228,7 +228,6 @@ public class PeerConnection {
 				}
 			}
 		})).start();
-
 	}
 
 	public void stop() {
@@ -247,6 +246,10 @@ public class PeerConnection {
 
 		// Close socket to forcefully stop
 		closeConnection();
+
+		// Tell the filemanager that this piece
+		// is not being downloaded any more
+		mFileManager.setPieceDownloading(mCurrentRequestIndex, false);
 	}
 
 	public void closeConnection() {

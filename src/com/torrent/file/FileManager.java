@@ -45,6 +45,16 @@ public class FileManager {
 		public Piece(int index){
 			this.index = index;
 		}
+
+		/**
+		 * Priority in terms of "rarest-first" with
+		 * an additional adjustment based on whether or not
+		 * it is already being downloaded;
+		 * @return lower is higher priority
+		 */
+		public int getPriority() { 
+			return availability + ((downloadStatus == Status.DOWNLOADING) ? (1) : (0));
+		}
 	}
 
 	/**
@@ -126,28 +136,52 @@ public class FileManager {
 	}
 
 	/**
-	 * Get the first piece that needs to be downloaded
+	 * Get a piece that needs to be downloaded, 
+	 * with a bias towards rarer pieces
 	 */
 	public int getNeededPiece(){
 		List<Piece> neededPieces = new ArrayList<Piece>();
 		
+		// Lower priority == more rare
+		int minPriority = Integer.MAX_VALUE;
+
 		for(int i = 0; i < mPieces.size(); i++){
 			if(mPieces.get(i).downloadStatus != Piece.Status.DOWNLOADED){
 				neededPieces.add(mPieces.get(i));
+				minPriority = Math.min(minPriority, mPieces.get(i).getPriority());
 			}
 		}
 		
 		if(neededPieces.isEmpty()){
 			return -1;
+		} else if (neededPieces.size() == 1){
+			return neededPieces.get(0).index;
+		} else {
+			// Gather all the pieces of the same priority
+			// and randomly choose among them
+			List<Piece> minPriorityPieces = new ArrayList<Piece>();
+
+			for(Piece p : neededPieces){
+				if(p.getPriority() == minPriority){
+					minPriorityPieces.add(p);
+				}
+			}
+
+			// Return a random piece of the min priority
+			return minPriorityPieces.get((int)(Math.random() * minPriorityPieces.size())).index;
 		}
-		
-		return neededPieces.get((int)(Math.random() * neededPieces.size())).index;
 	}
 
 	/**
 	 * Indicate this piece is being or not downloaded
 	 */
 	public void setPieceDownloading(int index, boolean isBeingDownloaded){
+		// Sanity checks
+		if(index < 0 || index >= mPieces.size() ||
+			       	mPieces.get(index).downloadStatus == Piece.Status.DOWNLOADED){
+			return;
+		}
+
 		mPieces.get(index).downloadStatus = (isBeingDownloaded) ? 
 					Piece.Status.DOWNLOADING : Piece.Status.NOT_DOWNLOADED;
 	}
@@ -314,9 +348,6 @@ public class FileManager {
 				}
 			} catch (Exception e) { }
 		}
-
-		// Tell the tracker that the file is completed
-		TrackerUtil.sendEvent(TrackerUtil.Events.COMPLETED);
 	}
 
 	/**
