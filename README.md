@@ -1,8 +1,6 @@
 ## About ##
-A bittorrent client for Internet Technology at Rutgers.
+A dead-simple command line bit torrent client written in Java
 
+## Usage ##
+RUBTClient \<torrent file\> \<output file or folder\>
 
-## Authors ##
-- James Dipierro
-- Victor Kaiser-Pendergrast
-- Grayson Phillips
